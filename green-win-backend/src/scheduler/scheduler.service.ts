@@ -19,36 +19,65 @@ export class SchedulerService {
     private readonly lambdaService: LambdaService,
   ) {}
 
+  // -------------------------------------------------------------------------
+  // Recurring cron — fires on every tick of the cron expression
+  // -------------------------------------------------------------------------
+
   scheduleLambdaCall(scheduledTask: ScheduledTask): void {
     const { taskId, functionName, cronExpression, payload } = scheduledTask;
 
     const job = new CronJob(cronExpression, async () => {
-      this.logger.log(
-        `Executing scheduled task ${taskId} for function ${functionName}`,
-      );
+      this.logger.log(`Executing recurring task ${taskId} → ${functionName}`);
       try {
-        const result = await this.lambdaService.invokeGreenHandler(
-          functionName,
-          payload,
-        );
-        this.logger.log(
-          `Task ${taskId} completed successfully: ${JSON.stringify(result)}`,
-        );
+        const result = await this.lambdaService.invokeGreenHandler(functionName, payload);
+        this.logger.log(`Task ${taskId} tick succeeded: ${JSON.stringify(result)}`);
       } catch (error) {
-        this.logger.error(
-          `Task ${taskId} failed: ${error.message}`,
-          error.stack,
-        );
+        this.logger.error(`Task ${taskId} tick failed: ${error.message}`, error.stack);
       }
     });
 
     this.schedulerRegistry.addCronJob(taskId, job);
     job.start();
-
-    this.logger.log(
-      `Cron job ${taskId} added with expression: ${cronExpression}`,
-    );
+    this.logger.log(`Recurring cron ${taskId} registered with expression: ${cronExpression}`);
   }
+
+  // -------------------------------------------------------------------------
+  // One-shot cron — fires exactly once at `runAt`, then self-destructs
+  // -------------------------------------------------------------------------
+
+  scheduleOnce(
+    taskId: string,
+    runAt: Date,
+    callback: () => Promise<void>,
+  ): void {
+    const key = `once:${taskId}`;
+
+    // CronJob accepts a Date as its first argument; it fires once when that
+    // moment is reached and does not repeat.
+    const job = new CronJob(runAt, async () => {
+      this.logger.log(`Executing one-shot cron ${key}`);
+      try {
+        await callback();
+        this.logger.log(`One-shot cron ${key} completed`);
+      } catch (error) {
+        this.logger.error(`One-shot cron ${key} failed: ${error.message}`, error.stack);
+      } finally {
+        // Explicitly stop and deregister so the registry stays clean
+        job.stop();
+        try {
+          this.schedulerRegistry.deleteCronJob(key);
+        } catch { /* already removed */ }
+      }
+    });
+
+    this.schedulerRegistry.addCronJob(key, job);
+    job.start();
+    this.logger.log(`One-shot cron ${key} scheduled for ${runAt.toISOString()}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
 
   removeCronJob(taskId: string): void {
     try {
@@ -56,6 +85,15 @@ export class SchedulerService {
       this.logger.log(`Cron job ${taskId} removed`);
     } catch (error) {
       this.logger.warn(`Failed to remove cron job ${taskId}: ${error.message}`);
+    }
+  }
+
+  removeOneShotCron(taskId: string): void {
+    try {
+      this.schedulerRegistry.deleteCronJob(`once:${taskId}`);
+      this.logger.log(`One-shot cron once:${taskId} removed`);
+    } catch (error) {
+      this.logger.warn(`Failed to remove one-shot cron once:${taskId}: ${error.message}`);
     }
   }
 

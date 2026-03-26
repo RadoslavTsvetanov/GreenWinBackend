@@ -57,6 +57,9 @@ export class Task {
   })
   status: TaskStatus;
 
+  @Column({ type: 'text', nullable: true })
+  cronExpression: string;
+
   @Column({ type: 'timestamptz', nullable: true })
   earliestStartAt: Date;
 

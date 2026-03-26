@@ -51,6 +51,18 @@ export class CreateTaskDto {
   @IsEnum(TaskRunMode)
   runMode?: TaskRunMode;
 
+  @ApiProperty({
+    required: false,
+    example: '0 3 * * 1',
+    description:
+      'Cron expression for recurring scheduled tasks (SCHEDULED mode only). ' +
+      'When set the task repeats on this schedule. ' +
+      'When absent the task runs once at the optimal time within the start/finish window.',
+  })
+  @IsOptional()
+  @IsString()
+  cronExpression?: string;
+
   @ApiProperty({ required: false, description: 'ISO 8601 datetime' })
   @IsOptional()
   @IsDateString()
