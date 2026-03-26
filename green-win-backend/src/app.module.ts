@@ -16,6 +16,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { PredictionModule } from './prediction/prediction.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TaskStrategiesModule } from './task-strategies/task-strategies.module';
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -50,6 +51,7 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     OrganizationsModule,
     ProjectsModule,
     TasksModule,
+    TaskStrategiesModule,
     TaskExecutionsModule,
     CheckpointsModule,
     GatewayModule,

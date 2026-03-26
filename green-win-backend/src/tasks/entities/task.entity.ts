@@ -11,7 +11,8 @@ import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TaskExecution } from '../../task-executions/entities/task-execution.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
-import { TaskRunMode, TaskStatus, TaskCodeType } from '../enums/task.enums';
+import { TaskStrategy } from '../../task-strategies/entities/task-strategy.entity';
+import { TaskStatus, TaskCodeType } from '../enums/task.enums';
 
 @Entity('tasks')
 export class Task {
@@ -45,26 +46,33 @@ export class Task {
 
   @Column({
     type: 'enum',
-    enum: TaskRunMode,
-    default: TaskRunMode.IMMEDIATE,
-  })
-  runMode: TaskRunMode;
-
-  @Column({
-    type: 'enum',
     enum: TaskStatus,
     default: TaskStatus.DRAFT,
   })
   status: TaskStatus;
-
-  @Column({ type: 'text', nullable: true })
-  cronExpression: string;
 
   @Column({ type: 'timestamptz', nullable: true })
   earliestStartAt: Date;
 
   @Column({ type: 'timestamptz', nullable: true })
   latestFinishAt: Date;
+
+  /**
+   * Declares the parameters this task's lambda expects.
+   * Example: [{ name: "recipient", type: "string", required: true }]
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  parameterSchema: Array<{
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'object';
+    required?: boolean;
+    default?: any;
+    description?: string;
+  }>;
+
+  /** When false the task cannot be activated or executed. */
+  @Column({ default: true })
+  isEnabled: boolean;
 
   @ManyToOne(() => User, (user: User) => user.tasks, { onDelete: 'CASCADE' })
   owner: User;
@@ -74,6 +82,9 @@ export class Task {
     nullable: true,
   })
   project: Project;
+
+  @OneToMany(() => TaskStrategy, (s) => s.task)
+  strategies: TaskStrategy[];
 
   @OneToMany(() => TaskExecution, (exec: TaskExecution) => exec.task)
   executions: TaskExecution[];

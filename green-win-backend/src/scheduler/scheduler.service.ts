@@ -4,7 +4,9 @@ import { CronJob } from 'cron';
 import { LambdaService } from '../lambda/lambda.service';
 
 export interface ScheduledTask {
-  taskId: string;
+  /** Unique key for this cron slot. Use strategy.id so multiple strategies on
+   *  the same task each get their own independent cron job. */
+  jobId: string;
   functionName: string;
   cronExpression: string;
   payload?: Record<string, unknown>;
@@ -24,21 +26,21 @@ export class SchedulerService {
   // -------------------------------------------------------------------------
 
   scheduleLambdaCall(scheduledTask: ScheduledTask): void {
-    const { taskId, functionName, cronExpression, payload } = scheduledTask;
+    const { jobId, functionName, cronExpression, payload } = scheduledTask;
 
     const job = new CronJob(cronExpression, async () => {
-      this.logger.log(`Executing recurring task ${taskId} → ${functionName}`);
+      this.logger.log(`Executing cron job ${jobId} → ${functionName}`);
       try {
         const result = await this.lambdaService.invokeGreenHandler(functionName, payload);
-        this.logger.log(`Task ${taskId} tick succeeded: ${JSON.stringify(result)}`);
+        this.logger.log(`Cron job ${jobId} tick succeeded: ${JSON.stringify(result)}`);
       } catch (error) {
-        this.logger.error(`Task ${taskId} tick failed: ${error.message}`, error.stack);
+        this.logger.error(`Cron job ${jobId} tick failed: ${error.message}`, error.stack);
       }
     });
 
-    this.schedulerRegistry.addCronJob(taskId, job);
+    this.schedulerRegistry.addCronJob(jobId, job);
     job.start();
-    this.logger.log(`Recurring cron ${taskId} registered with expression: ${cronExpression}`);
+    this.logger.log(`Recurring cron ${jobId} registered with expression: ${cronExpression}`);
   }
 
   // -------------------------------------------------------------------------
@@ -110,7 +112,7 @@ export class SchedulerService {
   }
 
   updateCronJob(scheduledTask: ScheduledTask): void {
-    this.removeCronJob(scheduledTask.taskId);
+    this.removeCronJob(scheduledTask.jobId);
     this.scheduleLambdaCall(scheduledTask);
   }
 }

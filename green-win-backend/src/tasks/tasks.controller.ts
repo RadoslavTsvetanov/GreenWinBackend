@@ -3,170 +3,84 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { Task } from './entities/task.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AwsDeployService } from '../aws/aws-deploy.service';
-import { SchedulerService } from '../scheduler/scheduler.service';
-import { PredictionService } from '../prediction/prediction.service';
 
 @ApiTags('tasks')
 @ApiBearerAuth('access-token')
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
 export class TasksController {
-  constructor(
-    private readonly tasksService: TasksService,
-    private readonly awsDeployService: AwsDeployService,
-    private readonly schedulerService: SchedulerService,
-    private readonly predictionService: PredictionService,
-  ) {}
+  constructor(private readonly tasksService: TasksService) {}
 
   @Get()
-  findAll(): Promise<Task[]> {
+  @ApiOperation({ summary: 'List all tasks' })
+  findAll() {
     return this.tasksService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<Task | null> {
-    return this.tasksService.findOne(id);
-  }
-
   @Get('owner/:ownerId')
-  findByOwner(@Param('ownerId') ownerId: string): Promise<Task[]> {
+  @ApiOperation({ summary: 'Get tasks by owner ID' })
+  findByOwner(@Param('ownerId') ownerId: string) {
     return this.tasksService.findByOwner(ownerId);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a task by ID (includes strategies, executions, checkpoints)' })
+  findOne(@Param('id') id: string) {
+    return this.tasksService.findOne(id);
+  }
+
+  @Get(':id/status')
+  @ApiOperation({ summary: 'Get the current status and enabled state of a task' })
+  getStatus(@Param('id') id: string) {
+    return this.tasksService.getStatus(id);
+  }
+
   @Post()
-  create(@Body() dto: CreateTaskDto): Promise<Task> {
+  @ApiOperation({
+    summary: 'Create a task',
+    description:
+      'Creates the task and optionally pre-attaches firing strategies. ' +
+      'No execution happens at this point — activate a strategy separately.',
+  })
+  create(@Body() dto: CreateTaskDto) {
     return this.tasksService.create(dto);
   }
 
   @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateTaskDto,
-  ): Promise<Task | null> {
+  @ApiOperation({ summary: 'Update a task' })
+  update(@Param('id') id: string, @Body() dto: UpdateTaskDto) {
     return this.tasksService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string): Promise<void> {
+  @ApiOperation({ summary: 'Delete a task (stops any active strategy first)' })
+  remove(@Param('id') id: string) {
     return this.tasksService.remove(id);
   }
 
-  @Post(':id/schedule')
-  async scheduleTask(
-    @Param('id') id: string,
-    @Body() scheduleData: { cronExpression: string; payload?: Record<string, unknown> },
-  ) {
-    const task = await this.tasksService.findOne(id);
-    if (!task) {
-      throw new Error(`Task ${id} not found`);
-    }
-
-    const functionName = `${task.owner?.id || 'default'}-${task.name}`;
-
-    const dateOfExecution = this.predictionService.predictOptimalExecutionDate({
-      startDate: new Date(),
-      endDate: new Date(),
-    })
-
-    this.schedulerService.scheduleLambdaCall({
-      taskId: id,
-      functionName,
-      cronExpression: scheduleData.cronExpression,
-      payload: scheduleData.payload,
-    });
-
-    
-
-    return { message: 'Task scheduled successfully', taskId: id };
+  @Patch(':id/enable')
+  @ApiOperation({ summary: 'Re-enable a disabled task' })
+  enable(@Param('id') id: string) {
+    return this.tasksService.enable(id);
   }
 
-  @Post(':id/invoke')
-  async invokeTask(
-    @Param('id') id: string,
-    @Body() invokeData: { 
-      startDate?: string; 
-      endDate?: string; 
-      payload?: Record<string, unknown>;
-      immediate?: boolean;
-    },
-  ) {
-    const task = await this.tasksService.findOne(id);
-    if (!task) {
-      throw new Error(`Task ${id} not found`);
-    }
-
-    const functionName = `${task.owner?.id || 'default'}-${task.name}`;
-
-    // If immediate execution or no date range provided, invoke now
-    if (invokeData.immediate || !invokeData.startDate || !invokeData.endDate) {
-      // Invoke immediately (handled by gateway/lambda service)
-      return { 
-        message: 'Task invoked immediately', 
-        taskId: id,
-        functionName,
-      };
-    }
-
-    // Use prediction service to find optimal execution time
-    const prediction = await this.predictionService.predictOptimalExecutionDate({
-      startDate: new Date(invokeData.startDate),
-      endDate: new Date(invokeData.endDate),
-    });
-
-    // Schedule for the optimal time
-    const optimalTime = prediction.optimalDate;
-    const now = new Date();
-    
-    if (optimalTime <= now) {
-      return {
-        message: 'Optimal time is in the past, invoking immediately',
-        taskId: id,
-        prediction,
-      };
-    }
-
-    // Convert to cron expression for one-time execution
-    const cronExpression = `${optimalTime.getUTCMinutes()} ${optimalTime.getUTCHours()} ${optimalTime.getUTCDate()} ${optimalTime.getUTCMonth() + 1} *`;
-
-    this.schedulerService.scheduleLambdaCall({
-      taskId: `${id}-optimal`,
-      functionName,
-      cronExpression,
-      payload: invokeData.payload,
-    });
-
-    return {
-      message: 'Task scheduled for optimal execution time',
-      taskId: id,
-      prediction,
-      scheduledFor: optimalTime,
-    };
-  }
-
-  @Delete(':id/schedule')
-  async unscheduleTask(@Param('id') id: string) {
-    this.schedulerService.removeCronJob(id);
-    return { message: 'Task unscheduled successfully', taskId: id };
-  }
-
-  @Get('scheduled')
-  getScheduledTasks() {
-    const jobs = this.schedulerService.getAllCronJobs();
-    return {
-      count: jobs.size,
-      tasks: Array.from(jobs.keys()),
-    };
+  @Patch(':id/disable')
+  @ApiOperation({
+    summary: 'Disable a task',
+    description: 'Stops any active strategy cron job and prevents further activations.',
+  })
+  disable(@Param('id') id: string) {
+    return this.tasksService.disable(id);
   }
 }
