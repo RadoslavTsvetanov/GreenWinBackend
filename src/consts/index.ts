@@ -1,1 +1,1 @@
-export { AWS_REGIONS, EUROPE_COUNTRY_TO_AWS_REGIONS, EUROPE_AWS_REGION_TO_COUNTRIES } from "./awsRegions.js";
+export * from "./awsRegions"
