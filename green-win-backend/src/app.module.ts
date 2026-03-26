@@ -12,6 +12,8 @@ import { GatewayModule } from './gateway/gateway.module';
 import { CarbonModule } from './carbon/carbon.module';
 import { LambdaModule } from './lambda/lambda.module';
 import { AwsModule } from './aws/aws.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
+import { PredictionModule } from './prediction/prediction.module';
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -50,6 +52,8 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     CarbonModule,
     LambdaModule,
     AwsModule,
+    SchedulerModule,
+    PredictionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
