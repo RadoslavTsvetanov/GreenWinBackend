@@ -14,6 +14,8 @@ import { LambdaModule } from './lambda/lambda.module';
 import { AwsModule } from './aws/aws.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { PredictionModule } from './prediction/prediction.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { ProjectsModule } from './projects/projects.module';
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -45,6 +47,8 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     }),
     AuthModule,
     UsersModule,
+    OrganizationsModule,
+    ProjectsModule,
     TasksModule,
     TaskExecutionsModule,
     CheckpointsModule,
