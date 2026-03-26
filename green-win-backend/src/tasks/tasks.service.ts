@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from './entities/task.entity';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 
 @Injectable()
 export class TasksService {
@@ -30,14 +32,32 @@ export class TasksService {
     });
   }
 
-  async create(taskData: Partial<Task>): Promise<Task> {
-    const task = this.tasksRepository.create(taskData);
+  async create(taskData: CreateTaskDto): Promise<Task> {
+    const { ownerId, ...rest } = taskData;
+
+    const task = this.tasksRepository.create({
+      ...rest,
+      owner: { id: ownerId } as Task['owner'],
+    });
+
     return this.tasksRepository.save(task);
   }
 
-  async update(id: string, taskData: Partial<Task>): Promise<Task | null> {
-    await this.tasksRepository.update(id, taskData);
-    return this.findOne(id);
+  async update(id: string, taskData: UpdateTaskDto): Promise<Task | null> {
+    const { ownerId, ...rest } = taskData;
+
+    const preloadData: Partial<Task> = {
+      id,
+      ...rest,
+      ...(ownerId ? { owner: { id: ownerId } as Task['owner'] } : {}),
+    };
+
+    const task = await this.tasksRepository.preload(preloadData);
+    if (!task) {
+      return null;
+    }
+
+    return this.tasksRepository.save(task);
   }
 
   async remove(id: string): Promise<void> {

@@ -20,23 +20,22 @@ export class User {
   passwordHash: string;
 
   @Column({ nullable: true })
-  name: string;
+  name?: string;
 
   @Column('text', {
     array: true,
     name: 'default_cloud_providers',
     nullable: true,
   })
-  defaultCloudProviders: string[];
+  defaultCloudProviders?: string[];
 
   @Column('text', { array: true, name: 'default_regions', nullable: true })
-  defaultRegions: string[];
+  defaultRegions?: string[];
 
   @OneToMany(() => Task, (task: Task) => task.owner)
   tasks: Task[];
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
-  createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
   updatedAt: Date;
