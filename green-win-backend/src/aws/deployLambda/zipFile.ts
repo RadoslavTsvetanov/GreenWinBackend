@@ -4,7 +4,7 @@ import {
   Runtime,
   PackageType,
 } from "@aws-sdk/client-lambda";
-import { env } from "../../env.js";
+
 
 export interface DeployLambdaInput {
   zipFile: Uint8Array;
@@ -28,8 +28,8 @@ export async function deployLambda({
   const client = new LambdaClient({ 
     region,
     credentials: {
-        accessKeyId: env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: env.AWS_SECRET_ACCESS_KEY
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string
     }
 });
   const functionName = `${organization}-${workloadName}`;

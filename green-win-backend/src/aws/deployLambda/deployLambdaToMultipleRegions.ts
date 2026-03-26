@@ -28,16 +28,3 @@ function deployToMultipleRegions(zipFile: Uint8Array, workloadName: string, orga
     )
 }
 
-// Example usage — zip a handler inline and deploy
-const zipFile = createZip({
-  "index.js": `exports.handler = async () => ({ statusCode: 200, body: "ok" });`,
-});
-
-const arns = await deployToMultipleRegions(
-  zipFile,
-  "payment-processor",
-  "acme-corp",
-  "arn:aws:iam::982479883166:role/our-backend-to-create-lambdas",
-);
-
-console.log("Deployed to:", arns);

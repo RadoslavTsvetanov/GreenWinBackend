@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 import { Task } from './entities/task.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AwsDeployService } from '../aws/aws-deploy.service';
@@ -44,16 +46,16 @@ export class TasksController {
   }
 
   @Post()
-  create(@Body() taskData: Partial<Task>): Promise<Task> {
-    return this.tasksService.create(taskData);
+  create(@Body() dto: CreateTaskDto): Promise<Task> {
+    return this.tasksService.create(dto);
   }
 
   @Put(':id')
   update(
     @Param('id') id: string,
-    @Body() taskData: Partial<Task>,
+    @Body() dto: UpdateTaskDto,
   ): Promise<Task | null> {
-    return this.tasksService.update(id, taskData);
+    return this.tasksService.update(id, dto);
   }
 
   @Delete(':id')
@@ -74,8 +76,8 @@ export class TasksController {
     const functionName = `${task.owner?.id || 'default'}-${task.name}`;
 
     const dateOfExecution = this.predictionService.predictOptimalExecutionDate({
-      startDate: "",
-      endDate: ""
+      startDate: new Date(),
+      endDate: new Date(),
     })
 
     this.schedulerService.scheduleLambdaCall({

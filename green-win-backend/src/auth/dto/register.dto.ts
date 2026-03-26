@@ -26,4 +26,11 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiProperty({
+    example: 'GreenCorp',
+    description: 'Organization name to join or create',
+  })
+  @IsString()
+  organizationName: string;
 }

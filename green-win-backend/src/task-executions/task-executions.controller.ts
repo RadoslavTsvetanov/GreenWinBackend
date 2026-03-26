@@ -6,11 +6,19 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TaskExecutionsService } from './task-executions.service';
+import { CreateTaskExecutionDto } from './dto/create-task-execution.dto';
+import { UpdateTaskExecutionDto } from './dto/update-task-execution.dto';
 import { TaskExecution } from './entities/task-execution.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('task-executions')
+@ApiBearerAuth('access-token')
 @Controller('task-executions')
+@UseGuards(JwtAuthGuard)
 export class TaskExecutionsController {
   constructor(
     private readonly executionsService: TaskExecutionsService,
@@ -32,16 +40,16 @@ export class TaskExecutionsController {
   }
 
   @Post()
-  create(@Body() executionData: Partial<TaskExecution>): Promise<TaskExecution> {
-    return this.executionsService.create(executionData);
+  create(@Body() dto: CreateTaskExecutionDto): Promise<TaskExecution> {
+    return this.executionsService.create(dto);
   }
 
   @Put(':id')
   update(
     @Param('id') id: string,
-    @Body() executionData: Partial<TaskExecution>,
+    @Body() dto: UpdateTaskExecutionDto,
   ): Promise<TaskExecution | null> {
-    return this.executionsService.update(id, executionData);
+    return this.executionsService.update(id, dto);
   }
 
   @Delete(':id')

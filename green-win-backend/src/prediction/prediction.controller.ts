@@ -1,6 +1,7 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { PredictionService, DateRange } from './prediction.service';
+import { PredictionService } from './prediction.service';
+import type { DateRange } from './prediction.service';
 
 @ApiTags('prediction')
 @Controller('prediction')
