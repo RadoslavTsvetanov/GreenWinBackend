@@ -6,11 +6,19 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CheckpointsService } from './checkpoints.service';
+import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
+import { UpdateCheckpointDto } from './dto/update-checkpoint.dto';
 import { Checkpoint } from './entities/checkpoint.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('checkpoints')
+@ApiBearerAuth('access-token')
 @Controller('checkpoints')
+@UseGuards(JwtAuthGuard)
 export class CheckpointsController {
   constructor(private readonly checkpointsService: CheckpointsService) {}
 
@@ -37,16 +45,16 @@ export class CheckpointsController {
   }
 
   @Post()
-  create(@Body() checkpointData: Partial<Checkpoint>): Promise<Checkpoint> {
-    return this.checkpointsService.create(checkpointData);
+  create(@Body() dto: CreateCheckpointDto): Promise<Checkpoint> {
+    return this.checkpointsService.create(dto);
   }
 
   @Put(':id')
   update(
     @Param('id') id: string,
-    @Body() checkpointData: Partial<Checkpoint>,
+    @Body() dto: UpdateCheckpointDto,
   ): Promise<Checkpoint | null> {
-    return this.checkpointsService.update(id, checkpointData);
+    return this.checkpointsService.update(id, dto);
   }
 
   @Delete(':id')

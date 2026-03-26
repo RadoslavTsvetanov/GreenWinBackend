@@ -5,8 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Task } from '../../tasks/entities/task.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('users')
 export class User {
@@ -31,6 +34,10 @@ export class User {
 
   @Column('text', { array: true, name: 'default_regions', nullable: true })
   defaultRegions: string[];
+
+  @ManyToOne(() => Organization, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization | null;
 
   @OneToMany(() => Task, (task: Task) => task.owner)
   tasks: Task[];

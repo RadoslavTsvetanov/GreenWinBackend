@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization } from './entities/organization.entity';
+import { Project } from '../projects/entities/project.entity';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
@@ -10,11 +11,22 @@ export class OrganizationsService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
   ) {}
 
   async create(createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
     const organization = this.organizationRepository.create(createOrganizationDto);
-    return this.organizationRepository.save(organization);
+    const saved = await this.organizationRepository.save(organization);
+
+    const mainProject = this.projectRepository.create({
+      name: 'main',
+      description: 'Default project',
+      organization: saved,
+    });
+    await this.projectRepository.save(mainProject);
+
+    return saved;
   }
 
   async findAll(): Promise<Organization[]> {
@@ -34,6 +46,10 @@ export class OrganizationsService {
     }
 
     return organization;
+  }
+
+  async findByName(name: string): Promise<Organization | null> {
+    return this.organizationRepository.findOne({ where: { name } });
   }
 
   async update(id: string, updateOrganizationDto: UpdateOrganizationDto): Promise<Organization> {

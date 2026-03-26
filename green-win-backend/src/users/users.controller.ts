@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -10,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -30,17 +30,12 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  @Post()
-  create(@Body() userData: Partial<User>): Promise<User> {
-    return this.usersService.create(userData);
-  }
-
   @Put(':id')
   update(
     @Param('id') id: string,
-    @Body() userData: Partial<User>,
+    @Body() dto: UpdateUserDto,
   ): Promise<User | null> {
-    return this.usersService.update(id, userData);
+    return this.usersService.update(id, dto);
   }
 
   @Delete(':id')
