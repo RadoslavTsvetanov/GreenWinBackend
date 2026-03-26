@@ -11,6 +11,7 @@ import { CheckpointsModule } from './checkpoints/checkpoints.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { CarbonModule } from './carbon/carbon.module';
 import { LambdaModule } from './lambda/lambda.module';
+import { AwsModule } from './aws/aws.module';
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -48,6 +49,7 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     GatewayModule,
     CarbonModule,
     LambdaModule,
+    AwsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

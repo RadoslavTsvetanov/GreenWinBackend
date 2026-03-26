@@ -12,15 +12,17 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { Task } from './entities/task.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { User } from '../users/entities/user.entity';
+import { AwsDeployService } from '../aws/aws-deploy.service';
 
 @ApiTags('tasks')
 @ApiBearerAuth('access-token')
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(
+    private readonly tasksService: TasksService,
+    private readonly awsDeployService: AwsDeployService,
+  ) {}
 
   @Get()
   findAll(): Promise<Task[]> {
@@ -39,6 +41,7 @@ export class TasksController {
 
   @Post()
   create(@Body() taskData: Partial<Task>): Promise<Task> {
+    this.awsDeployService.deployToMultipleRegions(taskData.name, taskData.) // populate the rest of the params 
     return this.tasksService.create(taskData);
   }
 
