@@ -17,6 +17,10 @@ export class TaskStrategy {
   @ManyToOne(() => Task, (task) => task.strategies, { onDelete: 'CASCADE' })
   task: Task;
 
+  /** When false the task cannot be activated or executed. */
+  @Column({ default: true })
+  isEnabled: boolean;
+
   @Column({ type: 'enum', enum: FiringStrategy })
   type: FiringStrategy;
 

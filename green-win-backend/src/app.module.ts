@@ -17,6 +17,17 @@ import { PredictionModule } from './prediction/prediction.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TaskStrategiesModule } from './task-strategies/task-strategies.module';
+// Explicit entity list — ensures all entities are in the DataSource regardless
+// of autoLoadEntities timing with circular-imported entities.
+import { User } from './users/entities/user.entity';
+import { Organization } from './organizations/entities/organization.entity';
+import { Project } from './projects/entities/project.entity';
+import { Task } from './tasks/entities/task.entity';
+import { TaskStrategy } from './task-strategies/entities/task-strategy.entity';
+import { TaskExecution } from './task-executions/entities/task-execution.entity';
+import { Checkpoint } from './checkpoints/entities/checkpoint.entity';
+
+const ALL_ENTITIES = [User, Organization, Project, Task, TaskStrategy, TaskExecution, Checkpoint];
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -29,7 +40,7 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     password: config.get<string>('DB_PASSWORD', 'postgres'),
     database: config.get<string>('DB_NAME', 'greenwin'),
     ssl: sslEnabled ? { rejectUnauthorized: false } : false,
-    autoLoadEntities: true,
+    entities: ALL_ENTITIES,
     synchronize: false,
     logging: false,
   };

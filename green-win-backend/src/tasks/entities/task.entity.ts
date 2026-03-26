@@ -11,7 +11,7 @@ import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TaskExecution } from '../../task-executions/entities/task-execution.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
-import { TaskStrategy } from '../../task-strategies/entities/task-strategy.entity';
+import type { TaskStrategy } from '../../task-strategies/entities/task-strategy.entity';
 import { TaskStatus, TaskCodeType } from '../enums/task.enums';
 
 @Entity('tasks')
@@ -70,10 +70,6 @@ export class Task {
     description?: string;
   }>;
 
-  /** When false the task cannot be activated or executed. */
-  @Column({ default: true })
-  isEnabled: boolean;
-
   @ManyToOne(() => User, (user: User) => user.tasks, { onDelete: 'CASCADE' })
   owner: User;
 
@@ -83,7 +79,8 @@ export class Task {
   })
   project: Project;
 
-  @OneToMany(() => TaskStrategy, (s) => s.task)
+  // String-based target breaks the circular import cycle with task-strategy.entity.ts
+  @OneToMany('TaskStrategy', (s: any) => s.task)
   strategies: TaskStrategy[];
 
   @OneToMany(() => TaskExecution, (exec: TaskExecution) => exec.task)
