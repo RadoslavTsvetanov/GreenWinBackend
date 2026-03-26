@@ -6,11 +6,19 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { Task } from './entities/task.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { User } from '../users/entities/user.entity';
 
+@ApiTags('tasks')
+@ApiBearerAuth('access-token')
 @Controller('tasks')
+@UseGuards(JwtAuthGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
