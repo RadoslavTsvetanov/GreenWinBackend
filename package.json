@@ -1,0 +1,16 @@
+{
+  "name": "greenwinbackend",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1017.0",
+    "fflate": "^0.8.2"
+  }
+}
