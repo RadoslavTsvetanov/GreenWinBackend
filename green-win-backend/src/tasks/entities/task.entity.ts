@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Project } from '../../projects/entities/project.entity';
 import { TaskExecution } from '../../task-executions/entities/task-execution.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { TaskRunMode, TaskStatus, TaskCodeType } from '../enums/task.enums';
@@ -64,6 +65,12 @@ export class Task {
 
   @ManyToOne(() => User, (user: User) => user.tasks, { onDelete: 'CASCADE' })
   owner: User;
+
+  @ManyToOne(() => Project, (project) => project.tasks, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  project: Project;
 
   @OneToMany(() => TaskExecution, (exec: TaskExecution) => exec.task)
   executions: TaskExecution[];

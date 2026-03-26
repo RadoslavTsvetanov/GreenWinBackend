@@ -9,7 +9,8 @@ import {
 } from 'typeorm';
 import { Task } from '../../tasks/entities/task.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
-import { ExecutionStatus } from '../enums/execution.enums';
+import { ExecutionStatus, TaskPeriodicity } from '../enums/execution.enums';
+import { ExecutionWindow } from '../interfaces/execution-window.interface';
 
 @Entity('task_executions')
 export class TaskExecution {
@@ -36,6 +37,25 @@ export class TaskExecution {
 
   @Column({ type: 'timestamptz', nullable: true })
   scheduledAt: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  executionDate: Date; // The actual date when the task was/will be executed
+
+  @Column({ type: 'timestamptz', nullable: true })
+  startDate: Date; // Start of execution window/range
+
+  @Column({ type: 'timestamptz', nullable: true })
+  endDate: Date; // End of execution window/range
+
+  @Column({
+    type: 'enum',
+    enum: TaskPeriodicity,
+    default: TaskPeriodicity.ONCE,
+  })
+  periodicity: TaskPeriodicity;
+
+  @Column({ type: 'jsonb', nullable: true })
+  executionWindows: ExecutionWindow[]; // Array of time windows for execution
 
   @Column({ type: 'timestamptz', nullable: true })
   startedAt: Date;
