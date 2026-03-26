@@ -8,6 +8,8 @@ import { UsersModule } from './users/users.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TaskExecutionsModule } from './task-executions/task-executions.module';
 import { CheckpointsModule } from './checkpoints/checkpoints.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { ProjectsModule } from './projects/projects.module';
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -39,6 +41,8 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     }),
     AuthModule,
     UsersModule,
+    OrganizationsModule,
+    ProjectsModule,
     TasksModule,
     TaskExecutionsModule,
     CheckpointsModule,

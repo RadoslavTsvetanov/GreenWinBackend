@@ -15,6 +15,8 @@ const AppDataSource = new DataSource({
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   entities: [
     'src/users/entities/*.entity.ts',
+    'src/organizations/entities/*.entity.ts',
+    'src/projects/entities/*.entity.ts',
     'src/tasks/entities/*.entity.ts',
     'src/task-executions/entities/*.entity.ts',
     'src/checkpoints/entities/*.entity.ts',
