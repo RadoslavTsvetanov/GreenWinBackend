@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, MoreThan, Repository } from 'typeorm';
+import { And, Between, LessThan, MoreThan, Repository } from 'typeorm';
 import { TaskExecution } from './entities/task-execution.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { CreateTaskExecutionDto } from './dto/create-task-execution.dto';
@@ -21,18 +21,44 @@ export class TaskExecutionsService {
     });
   }
 
-  async getLogsFromDateToDate(projectId: string, startDate: Date, endDate: Date) {
-    return this.executionsRepository.find({
+  async getLogsFromDateToDate(organizationId: string, startDate: Date, endDate: Date) {
+    console.log({
       where: {
-        startDate: MoreThan(startDate),
-        endDate: LessThan(endDate),
+        createdAt: And(MoreThan(startDate), LessThan (endDate)), 
+        // task: {
+        //   project: {
+        //     organization: {
+        //       id: organizationId,
+        //     }
+        //   },
+        // },
+      },
+      relations: {
         task: {
           project: {
-            id: projectId
-          },
-        },
+            organization: true
+          }
+        }
+      }
+    })
+    return this.executionsRepository.find({
+      where: {
+        createdAt: And(MoreThan(startDate), LessThan (endDate)), 
+        // task: {
+        //   project: {
+        //     organization: {
+        //       id: organizationId,
+        //     }
+        //   },
+        // },
       },
-      relations: ['task', 'task.project', 'task.project.organization', 'checkpoints'],
+      relations: {
+        task: {
+          project: {
+            organization: true
+          }
+        }
+      }
     });
   }
 

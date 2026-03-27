@@ -7,6 +7,8 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -30,15 +32,45 @@ export class OrganizationsController {
 
   @Get('/carbon-footprint/real')
   async getCarbonUsage(
-    @Param('startDate') startDate: Date,
-    @Param('endDate') endDate: Date,
-    @Param('projectId') projectId: string,
+    @Query('startDate') startDate: Date,
+    @Query('endDate', ) endDate: Date,
+    @Query('organizationId', ParseUUIDPipe) organizationId: string,
   ){
-    return await this.taskExectionsService.getLogsFromDateToDate(projectId, startDate, endDate)
+    const transformedStart = new Date(startDate)
+    const transformedEnd =  new Date(endDate)
+    return await this.taskExectionsService.getLogsFromDateToDate(organizationId, transformedStart,transformedEnd)
   }
 
   @Get('carbon-fotprint/:region')
-  getCarbonUsageIfOnSpecificRegion(){}
+  async getCarbonUsageIfOnSpecificRegion(
+    
+    @Query('startDate') startDate: Date,
+    @Query('endDate', ) endDate: Date,
+    @Query('organizationId', ParseUUIDPipe) organizationId: string,
+  ){
+    const transformedStart = new Date(startDate)
+    const transformedEnd =  new Date(endDate)
+    const data = await this.taskExectionsService.getLogsFromDateToDate(organizationId, transformedStart ,transformedEnd)
+    data.forEach(entry => entry.metrics)
+  }
+
+  @Get('/:projectId/carbon-footprint/real')
+  getCarbonFootprintForCertainProject(
+    @Query('startDate') startDate: Date,
+    @Query('endDate') endDate: Date,
+    @Query('projectId') projectId: string,
+  ) {
+
+  }
+  
+  @Get("/:projectId/carbon-footprint/:region")
+  getCarbonFootprintForCertainProjectForCertainRegion(
+    @Query('startDate') startDate: Date,
+    @Query('endDate') endDate: Date,
+    @Query('projectId') projectId: string,
+  ){
+
+  }
 
 
   @Get()
