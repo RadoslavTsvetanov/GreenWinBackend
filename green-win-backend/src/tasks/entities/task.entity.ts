@@ -32,10 +32,6 @@ export class Task {
   })
   codeType: TaskCodeType;
 
-  /** S3 key of the uploaded lambda zip, e.g. "lambda-code/<taskId>.zip" */
-  @Column({ type: 'text', nullable: true })
-  lambdaS3Key: string;
-
   @Column({ type: 'text', nullable: true })
   dockerImage: string;
 

@@ -12,16 +12,34 @@ import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TaskExecutionsService } from 'src/task-executions';
 
 @Controller('organizations')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly taskExectionsService: TaskExecutionsService
+  
+  ) {}
 
   @Post()
   create(@Body() createOrganizationDto: CreateOrganizationDto) {
     return this.organizationsService.create(createOrganizationDto);
   }
+
+  @Get('/carbon-footprint/real')
+  async getCarbonUsage(
+    @Param('startDate') startDate: Date,
+    @Param('endDate') endDate: Date,
+    @Param('projectId') projectId: string,
+  ){
+    return await this.taskExectionsService.getLogsFromDateToDate(projectId, startDate, endDate)
+  }
+
+  @Get('carbon-fotprint/:region')
+  getCarbonUsageIfOnSpecificRegion(){}
+
 
   @Get()
   findAll() {
