@@ -7,10 +7,14 @@ import { Project } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { TaskExecution } from '../task-executions/entities/task-execution.entity';
 import { TaskStrategy } from '../task-strategies/entities/task-strategy.entity';
+import { TaskExecutionsModule } from '../task-executions/task-executions.module';
+import { CarbonModule } from '../carbon/carbon.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Organization, Project, Task, TaskExecution, TaskStrategy]),
+    TaskExecutionsModule,
+    CarbonModule,
   ],
   controllers: [OrganizationsController],
   providers: [OrganizationsService],

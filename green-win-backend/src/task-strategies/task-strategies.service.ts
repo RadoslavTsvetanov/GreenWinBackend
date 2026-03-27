@@ -438,7 +438,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
    * Creates an execution record with real AWS metrics + mock carbon data,
    * and propagates emissions to the organization totals.
    */
-  private async recordInvocation(
+   async recordInvocation(
     strategy: TaskStrategy,
     result: LambdaInvocationResult,
   ): Promise<TaskExecution> {
