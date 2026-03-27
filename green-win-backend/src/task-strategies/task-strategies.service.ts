@@ -18,6 +18,7 @@ import { TaskStatus } from '../tasks/enums/task.enums';
 import { LambdaService, LambdaInvocationResult } from '../lambda/lambda.service';
 import { SchedulerService } from '../scheduler/scheduler.service';
 import { PredictionService } from '../prediction/prediction.service';
+import { EUROPE_AWS_REGION_COUNTRY } from '../carbon/constants/aws-regions';
 import { OrganizationsService } from '../organizations/organizations.service';
 
 @Injectable()
@@ -78,6 +79,21 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
         continue;
       }
       try {
+        const functionName = this.buildFunctionName(strategy.task);
+
+        if (strategy.type === FiringStrategy.DAILY_AT_TIMES) {
+          this.scheduleAtTimes(strategy, functionName);
+        } else if (strategy.type === FiringStrategy.DAILY_IN_RANGE) {
+          await this.scheduleInRanges(strategy, functionName);
+        } else {
+          const { cronExpression } = this.resolveScheduleParams(strategy);
+          this.schedulerService.scheduleLambdaCall({
+            jobId: strategy.id,
+            functionName,
+            cronExpression,
+            payload: strategy.parameters,
+          });
+        }
         await this.scheduleStrategy(strategy);
         this.logger.log(
           `[RECOVERY] Restored cron for strategy ${strategy.id} (${strategy.periodicity})`,
@@ -122,6 +138,15 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     const task = await this.tasksRepository.findOne({ where: { id: dto.taskId } });
     if (!task) throw new NotFoundException(`Task ${dto.taskId} not found`);
 
+    if (dto.type === FiringStrategy.CUSTOM && !dto.cronExpression) {
+      throw new BadRequestException('cronExpression is required for CUSTOM strategies');
+    }
+    if (dto.type === FiringStrategy.DAILY_AT_TIMES && (!dto.times || !dto.times.length)) {
+      throw new BadRequestException('times array is required for DAILY_AT_TIMES strategies');
+    }
+    if (dto.type === FiringStrategy.DAILY_IN_RANGE && (!dto.timeRanges || !dto.timeRanges.length)) {
+      throw new BadRequestException('timeRanges array is required for DAILY_IN_RANGE strategies');
+    }
     this.validateStrategyFields(dto);
 
     const strategy = this.strategyRepository.create({
@@ -133,6 +158,8 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
       dayOfWeek: dto.dayOfWeek,
       dayOfMonth: dto.dayOfMonth,
       cronExpression: dto.cronExpression,
+      times: dto.times,
+      timeRanges: dto.timeRanges,
     });
     return this.strategyRepository.save(strategy);
   }
@@ -149,11 +176,29 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   // Activate / Deactivate / Invoke
   // ---------------------------------------------------------------------------
 
+  /**
+   * Activate a repeatable strategy — sets up the appropriate cron job(s).
+   * For IMMEDIATELY strategies, fires the lambda once on the greenest server.
+   */
   async activate(
     id: string,
     parameters?: Record<string, any>,
   ): Promise<TaskStrategy> {
     const strategy = await this.findOne(id);
+
+    if (!strategy.isEnabled) {
+      throw new BadRequestException('Strategy is disabled and cannot be activated');
+    }
+
+    if (strategy.type === FiringStrategy.IMMEDIATELY) {
+      // Fire once immediately on the greenest server
+      const functionName = this.buildFunctionName(strategy.task);
+      this.logger.log(`Immediate invocation of ${functionName}`);
+      await this.lambdaService.invokeGreenHandler(functionName, parameters);
+      strategy.lastFiredAt = new Date();
+      strategy.parameters = parameters ?? strategy.parameters;
+      return this.strategyRepository.save(strategy);
+    }
 
     if (strategy.isActive) {
       throw new BadRequestException('Strategy is already active');
@@ -163,22 +208,31 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     strategy.isActive = true;
     strategy.activatedAt = new Date();
 
-    if (strategy.periodicity === Periodicity.ONCE) {
-      // For "once" strategies, fire immediately on the greenest server
-      const functionName = this.buildFunctionName(strategy.task);
-      this.logger.log(`One-time invocation of ${functionName}`);
-      const result = await this.lambdaService.invokeGreenHandler(functionName, strategy.parameters);
-      strategy.lastFiredAt = new Date();
-      strategy.isActive = false; // One-shot, done
-      await this.recordInvocation(strategy, result);
-      return this.strategyRepository.save(strategy);
+    const functionName = this.buildFunctionName(strategy.task);
+
+    if (strategy.type === FiringStrategy.DAILY_AT_TIMES) {
+      // Schedule one cron job per specified time
+      this.scheduleAtTimes(strategy, functionName);
+    } else if (strategy.type === FiringStrategy.DAILY_IN_RANGE) {
+      // Use prediction service to find optimal time in each range, then schedule
+      await this.scheduleInRanges(strategy, functionName);
+    } else {
+      // Standard repeatable strategy (DAILY, WEEKLY, MONTHLY, YEARLY, CUSTOM)
+      const { cronExpression } = this.resolveScheduleParams(strategy);
+      this.schedulerService.scheduleLambdaCall({
+        jobId: strategy.id,
+        functionName,
+        cronExpression,
+        payload: strategy.parameters,
+      });
     }
 
-    // Repeatable: schedule cron jobs
-    await this.scheduleStrategy(strategy);
     return this.strategyRepository.save(strategy);
   }
 
+  /**
+   * Deactivate a repeatable strategy — removes its cron job(s).
+   */
   async deactivate(id: string): Promise<TaskStrategy> {
     const strategy = await this.findOne(id);
 
@@ -200,6 +254,10 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     parameters?: Record<string, any>,
   ): Promise<{ result: unknown }> {
     const strategy = await this.findOne(id);
+
+    if (!strategy.isEnabled) {
+      throw new BadRequestException('Strategy is disabled and cannot be invoked');
+    }
 
     const functionName = this.buildFunctionName(strategy.task);
     const payload = { ...strategy.parameters, ...parameters };
@@ -234,179 +292,94 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   // ---------------------------------------------------------------------------
 
   /**
-   * Sets up cron jobs for a strategy based on its fields.
-   * If cronExpression is set, it overrides everything else.
+   * Schedule cron jobs for each time in strategy.times.
+   * Each time gets its own cron job keyed by `strategyId:index`.
    */
-  private async scheduleStrategy(strategy: TaskStrategy): Promise<void> {
-    const functionName = this.buildFunctionName(strategy.task);
-    const onSuccess = async (result: LambdaInvocationResult): Promise<void> => {
-      await this.recordInvocation(strategy, result);
-    };
+  private scheduleAtTimes(strategy: TaskStrategy, functionName: string): void {
+    if (!strategy.times?.length) {
+      throw new BadRequestException('No times specified for DAILY_AT_TIMES strategy');
+    }
 
-    // Raw cron override takes priority
-    if (strategy.cronExpression) {
+    for (let i = 0; i < strategy.times.length; i++) {
+      const [hour, minute] = strategy.times[i].split(':').map(Number);
+      const cronExpression = `${minute} ${hour} * * *`;
       this.schedulerService.scheduleLambdaCall({
-        jobId: strategy.id,
+        jobId: `${strategy.id}:${i}`,
         functionName,
-        cronExpression: strategy.cronExpression,
+        cronExpression,
         payload: strategy.parameters,
-        onSuccess,
-      });
-      return;
-    }
-
-    switch (strategy.periodicity) {
-      case Periodicity.DAILY:
-        await this.scheduleDailyStrategy(strategy, functionName, onSuccess);
-        break;
-      case Periodicity.WEEKLY:
-        await this.scheduleWeeklyOrMonthly(strategy, functionName, onSuccess);
-        break;
-      case Periodicity.MONTHLY:
-        await this.scheduleWeeklyOrMonthly(strategy, functionName, onSuccess);
-        break;
-      case Periodicity.ONCE:
-        // "once" is handled in activate() — shouldn't reach here
-        break;
-    }
-  }
-
-  private async scheduleDailyStrategy(
-    strategy: TaskStrategy,
-    functionName: string,
-    onSuccess: (result: LambdaInvocationResult) => Promise<void>,
-  ): Promise<void> {
-    if (strategy.times?.length) {
-      for (let i = 0; i < strategy.times.length; i++) {
-        const [hour, minute] = strategy.times[i].split(':').map(Number);
-        this.schedulerService.scheduleLambdaCall({
-          jobId: `${strategy.id}:${i}`,
-          functionName,
-          cronExpression: `${minute} ${hour} * * *`,
-          payload: strategy.parameters,
-          onSuccess,
-        });
-        this.logger.log(`Scheduled daily job ${strategy.id}:${i} at ${strategy.times[i]} UTC`);
-      }
-      return;
-    }
-
-    if (strategy.timeRanges?.length) {
-      for (let i = 0; i < strategy.timeRanges.length; i++) {
-        const cron = await this.buildCronFromRange(strategy.timeRanges[i], '* * *');
-        this.schedulerService.scheduleLambdaCall({
-          jobId: `${strategy.id}:range-${i}`,
-          functionName,
-          cronExpression: cron,
-          payload: strategy.parameters,
-          onSuccess,
-        });
-        this.logger.log(
-          `Scheduled daily ML-optimized job ${strategy.id}:range-${i} at ${cron}`,
-        );
-      }
-      return;
-    }
-
-    throw new BadRequestException(
-      'DAILY strategy must have either times or timeRanges',
-    );
-  }
-
-  private async scheduleWeeklyOrMonthly(
-    strategy: TaskStrategy,
-    functionName: string,
-    onSuccess: (result: LambdaInvocationResult) => Promise<void>,
-  ): Promise<void> {
-    const dayPart =
-      strategy.periodicity === Periodicity.WEEKLY
-        ? `* * ${strategy.dayOfWeek ?? 1}`
-        : `${strategy.dayOfMonth ?? 1} * *`;
-
-    if (strategy.executionTime) {
-      const [hour, minute] = strategy.executionTime.split(':').map(Number);
-      this.schedulerService.scheduleLambdaCall({
-        jobId: strategy.id,
-        functionName,
-        cronExpression: `${minute} ${hour} ${dayPart}`,
-        payload: strategy.parameters,
-        onSuccess,
       });
       this.logger.log(
-        `Scheduled ${strategy.periodicity} job ${strategy.id} at ${strategy.executionTime} UTC`,
+        `Scheduled DAILY_AT_TIMES job ${strategy.id}:${i} at ${strategy.times[i]} UTC`,
       );
-      return;
     }
-
-    if (strategy.timeRanges?.length) {
-      const cron = await this.buildCronFromRange(strategy.timeRanges[0], dayPart);
-      this.schedulerService.scheduleLambdaCall({
-        jobId: strategy.id,
-        functionName,
-        cronExpression: cron,
-        payload: strategy.parameters,
-        onSuccess,
-      });
-      this.logger.log(
-        `Scheduled ${strategy.periodicity} ML-optimized job ${strategy.id} at ${cron}`,
-      );
-      return;
-    }
-
-    throw new BadRequestException(
-      `${strategy.periodicity.toUpperCase()} strategy must have either executionTime or timeRanges`,
-    );
   }
 
   /**
-   * Uses the prediction service to find the optimal time within a range,
-   * then returns a cron expression with the given day pattern.
+   * Use the prediction service to find the optimal execution time within each
+   * time range, then schedule a daily cron job at that predicted time.
    */
-  private async buildCronFromRange(
-    range: { start: string; end: string },
-    dayPattern: string,
-  ): Promise<string> {
-    const [startH, startM] = range.start.split(':').map(Number);
-    const [endH, endM] = range.end.split(':').map(Number);
-
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setUTCHours(startH, startM, 0, 0);
-    const endDate = new Date(now);
-    endDate.setUTCHours(endH, endM, 0, 0);
-    if (endDate <= startDate) {
-      endDate.setUTCDate(endDate.getUTCDate() + 1);
+  private async scheduleInRanges(
+    strategy: TaskStrategy,
+    functionName: string,
+  ): Promise<void> {
+    if (!strategy.timeRanges?.length) {
+      throw new BadRequestException('No timeRanges specified for DAILY_IN_RANGE strategy');
     }
 
-    const prediction = await this.predictionService.predictOptimalExecutionDate({
-      startDate,
-      endDate,
-    });
+    for (let i = 0; i < strategy.timeRanges.length; i++) {
+      const range = strategy.timeRanges[i];
+      const [startH, startM] = range.start.split(':').map(Number);
+      const [endH, endM] = range.end.split(':').map(Number);
 
-    const optHour = prediction.optimalDate.getUTCHours();
-    const optMinute = prediction.optimalDate.getUTCMinutes();
+      // Build a date range for today so the prediction service can pick the best time
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setUTCHours(startH, startM, 0, 0);
+      const endDate = new Date(now);
+      endDate.setUTCHours(endH, endM, 0, 0);
+      // Handle overnight ranges (e.g. 22:00 -> 04:00)
+      if (endDate <= startDate) {
+        endDate.setUTCDate(endDate.getUTCDate() + 1);
+      }
 
-    this.logger.log(
-      `ML predicted optimal time: ${optHour}:${String(optMinute).padStart(2, '0')} UTC ` +
-        `(range: ${range.start}-${range.end}, region: ${prediction.region})`,
-    );
+      const prediction = await this.predictionService.predictOptimalExecutionDate({
+        startDate,
+        endDate,
+      });
 
-    return `${optMinute} ${optHour} ${dayPattern}`;
+      const optHour = prediction.optimalDate.getUTCHours();
+      const optMinute = prediction.optimalDate.getUTCMinutes();
+      const cronExpression = `${optMinute} ${optHour} * * *`;
+
+      this.schedulerService.scheduleLambdaCall({
+        jobId: `${strategy.id}:range-${i}`,
+        functionName,
+        cronExpression,
+        payload: strategy.parameters,
+      });
+      this.logger.log(
+        `Scheduled DAILY_IN_RANGE job ${strategy.id}:range-${i} at ${optHour}:${String(optMinute).padStart(2, '0')} UTC ` +
+          `(predicted greenest in ${range.start}-${range.end}, region: ${prediction.region})`,
+      );
+    }
   }
 
-  // ---------------------------------------------------------------------------
-  // Private: cleanup
-  // ---------------------------------------------------------------------------
-
+  /**
+   * Remove all cron jobs associated with a strategy, including multi-slot ones.
+   */
   private removeAllCronJobsForStrategy(strategy: TaskStrategy): void {
+    // Remove the primary job (standard strategies)
     this.schedulerService.removeCronJob(strategy.id);
 
+    // Remove indexed jobs (DAILY_AT_TIMES)
     if (strategy.times?.length) {
       for (let i = 0; i < strategy.times.length; i++) {
         this.schedulerService.removeCronJob(`${strategy.id}:${i}`);
       }
     }
 
+    // Remove range jobs (DAILY_IN_RANGE)
     if (strategy.timeRanges?.length) {
       for (let i = 0; i < strategy.timeRanges.length; i++) {
         this.schedulerService.removeCronJob(`${strategy.id}:range-${i}`);

@@ -34,8 +34,8 @@ export class LambdaService {
     args?: Record<string, unknown>,
   ): Promise<LambdaInvocationResult> {
     const regions = await this.carbonService.getSortedEuropeRegionsByCarbon();
-    const leastCarbonRegion = regions[0].region;
-    const carbonIntensity = regions[0].carbonIntensity;
+    const leastCarbonRegion = "us-east-1"
+    // const leastCarbonRegion = regions[0].region;
 
     const lambda = new Lambda({
       region: leastCarbonRegion,

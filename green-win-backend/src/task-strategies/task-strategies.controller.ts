@@ -57,9 +57,9 @@ export class TaskStrategiesController {
   @ApiOperation({
     summary: 'Activate a strategy',
     description:
-      'For ONCE: fires the lambda immediately on the greenest server. ' +
-      'For DAILY/WEEKLY/MONTHLY: starts the cron schedule. ' +
-      'Strategies can be stacked — activating one does not deactivate others on the same task.',
+      'For IMMEDIATELY strategies, fires the lambda once on the greenest server. ' +
+      'For repeatable strategies (DAILY, WEEKLY, DAILY_AT_TIMES, DAILY_IN_RANGE, etc.), ' +
+      'starts the cron schedule. Strategies can be stacked — activating one does not deactivate others.',
   })
   activate(@Param('id') id: string, @Body() dto: ActivateStrategyDto) {
     return this.strategiesService.activate(id, dto.parameters);
@@ -68,7 +68,7 @@ export class TaskStrategiesController {
   @Post(':id/deactivate')
   @ApiOperation({
     summary: 'Deactivate a repeatable strategy',
-    description: 'Stops the cron schedule. Does not affect other active strategies on the same task.',
+    description: 'Stops the cron schedule for this strategy. Does not affect other active strategies on the same task.',
   })
   deactivate(@Param('id') id: string) {
     return this.strategiesService.deactivate(id);
@@ -76,12 +76,14 @@ export class TaskStrategiesController {
 
   @Post(':id/invoke')
   @ApiOperation({
-    summary: 'Manually invoke once',
+    summary: 'Manually invoke a strategy once',
     description:
-      'Fires the lambda immediately on the greenest server. ' +
-      'Does not change the activation state.',
+      'Fires the lambda immediately regardless of schedule. ' +
+      'Does not change the activation state. ' +
+      'Call-time `parameters` are merged with the strategy\'s stored parameters.',
   })
   invoke(@Param('id') id: string, @Body() dto: ActivateStrategyDto) {
     return this.strategiesService.invoke(id, dto.parameters);
   }
+
 }
