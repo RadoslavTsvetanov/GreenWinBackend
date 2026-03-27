@@ -442,12 +442,18 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     strategy: TaskStrategy,
     result: LambdaInvocationResult,
   ): Promise<TaskExecution> {
+    const now = new Date();
+    const durationMs = result.metrics?.durationMs ?? 0;
+    const startedAt = new Date(now.getTime() - durationMs);
+
     const execution = this.executionRepository.create({
       task: strategy.task,
       status: ExecutionStatus.SUCCEEDED,
       provider: 'aws',
       region: result.region,
-      scheduledAt: new Date(),
+      scheduledAt: now,
+      startedAt,
+      finishedAt: now,
       metrics: result.metrics,
     });
     const saved = await this.executionRepository.save(execution);

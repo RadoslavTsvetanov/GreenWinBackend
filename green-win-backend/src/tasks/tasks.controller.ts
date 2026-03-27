@@ -51,6 +51,18 @@ export class TasksController {
     return this.tasksService.findOne(id);
   }
 
+  @Get(':id/detail')
+  @ApiOperation({
+    summary: 'Get full task detail with computed summary',
+    description:
+      'Returns the task with all relations plus a `summary` object containing: ' +
+      'provider, region, totalCo2Grams, totalEnergyKwh, executionMode, ' +
+      'totalExecutions, successfulExecutions, failedExecutions, lastExecutedAt.',
+  })
+  getTaskDetail(@Param('id') id: string) {
+    return this.tasksService.getTaskDetail(id);
+  }
+
   @Get(':id/status')
   @ApiOperation({ summary: 'Get the current status of a task' })
   getStatus(@Param('id') id: string) {

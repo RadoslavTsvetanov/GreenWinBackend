@@ -19,7 +19,7 @@ import { CarbonService, LambdaExecutionMetrics } from 'src/carbon/carbon.service
 @ApiTags('organizations')
 @ApiBearerAuth('access-token')
 @Controller('organizations')
-// @UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class OrganizationsController {
   constructor(
     private readonly organizationsService: OrganizationsService,

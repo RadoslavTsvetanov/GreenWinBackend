@@ -142,6 +142,53 @@ export class TasksService {
     return this.tasksRepository.save(task);
   }
 
+  async getTaskDetail(id: string) {
+    const task = await this.tasksRepository.findOne({
+      where: { id },
+      relations: ['owner', 'project', 'project.organization', 'strategies', 'executions'],
+    });
+    if (!task) throw new NotFoundException(`Task ${id} not found`);
+
+    const executions = task.executions ?? [];
+    const strategies = task.strategies ?? [];
+
+    // Sort executions newest first
+    const sorted = [...executions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    const latest = sorted[0] ?? null;
+
+    // Aggregate CO2 from all executions
+    const totalCo2Grams = executions.reduce(
+      (sum, e) => sum + (e.metrics?.estimatedEmissionsGco2 ?? 0),
+      0,
+    );
+    const totalEnergyKwh = executions.reduce(
+      (sum, e) => sum + (e.metrics?.estimatedEnergyKwh ?? 0),
+      0,
+    );
+
+    // Derive execution mode from strategies
+    const activeStrategy = strategies.find((s) => s.isActive) ?? strategies[0];
+    const executionMode = activeStrategy?.periodicity ?? null;
+
+    return {
+      ...task,
+      summary: {
+        provider: latest?.provider ?? null,
+        region: latest?.region ?? null,
+        totalCo2Grams: Number(totalCo2Grams.toFixed(6)),
+        totalEnergyKwh: Number(totalEnergyKwh.toFixed(10)),
+        executionMode,
+        totalExecutions: executions.length,
+        successfulExecutions: executions.filter((e) => e.status === 'succeeded').length,
+        failedExecutions: executions.filter((e) => e.status === 'failed').length,
+        lastExecutedAt: latest?.finishedAt ?? latest?.createdAt ?? null,
+        lastRegion: latest?.region ?? null,
+      },
+    };
+  }
+
   async remove(id: string): Promise<void> {
     const task = await this.tasksRepository.findOne({
       where: { id },
