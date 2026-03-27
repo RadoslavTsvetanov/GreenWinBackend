@@ -7,11 +7,13 @@ import { TaskStrategy } from '../task-strategies/entities/task-strategy.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { SchedulerModule } from '../scheduler/scheduler.module';
+import { AwsModule } from '../aws/aws.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Task, User, Project, TaskStrategy]),
     SchedulerModule,
+    AwsModule,
   ],
   controllers: [TasksController],
   providers: [TasksService],

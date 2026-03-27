@@ -70,7 +70,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
 
     let restored = 0;
     for (const strategy of active) {
-      if (!strategy.task.isEnabled) {
+      if (!strategy.task) {
         this.logger.warn(
           `[RECOVERY] Strategy ${strategy.id} belongs to disabled task — skipping`,
         );
@@ -146,108 +146,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   }
 
   // ---------------------------------------------------------------------------
-  // Activation / deactivation
-  // ---------------------------------------------------------------------------
-
-  async activate(id: string, parameters?: Record<string, any>): Promise<TaskStrategy> {
-    const strategy = await this.findOne(id);
-    const task = strategy.task;
-
-    if (!task.isEnabled) {
-      throw new BadRequestException(
-        `Task ${task.id} is disabled — enable it before activating a strategy`,
-      );
-    }
-    if (strategy.isActive) {
-      throw new BadRequestException('Strategy is already active');
-    }
-
-    // Validate supplied parameters against the task's declared schema
-    const resolvedParams = this.resolveParameters(task, parameters);
-
-    // Deploy lambda code to all EU regions (idempotent — safe to call even if
-    // another strategy already deployed it)
-    await this.deployLambda(task);
-
-    if (resolvedParams !== null) {
-      strategy.parameters = resolvedParams;
-    }
-
-    const isRepeatable = REPEATABLE_STRATEGIES.has(strategy.type);
-
-    if (!isRepeatable) {
-      // IMMEDIATELY — fire once, no cron, stays inactive
-      await this.tasksRepository.update(task.id, { status: TaskStatus.RUNNING });
-      try {
-        await this.lambdaService.invokeGreenHandler(
-          this.buildFunctionName(task),
-          resolvedParams ?? undefined,
-        );
-        await this.tasksRepository.update(task.id, { status: TaskStatus.SUCCEEDED });
-      } catch (err: any) {
-        await this.tasksRepository.update(task.id, { status: TaskStatus.FAILED });
-        throw err;
-      }
-      strategy.lastFiredAt = new Date();
-      return this.strategyRepository.save(strategy);
-    }
-
-    // Repeatable — each strategy gets its own cron slot keyed by strategy.id
-    // so multiple strategies on the same task can coexist
-    const { functionName, cronExpression } = this.resolveScheduleParams(strategy);
-    this.schedulerService.scheduleLambdaCall({
-      jobId: strategy.id,
-      functionName,
-      cronExpression,
-      payload: resolvedParams ?? undefined,
-    });
-
-    strategy.isActive = true;
-    strategy.activatedAt = new Date();
-    await this.strategyRepository.save(strategy);
-
-    // Mark the task as QUEUED if it isn't already running/queued from another strategy
-    const current = await this.tasksRepository.findOne({ where: { id: task.id } });
-    if (current && current.status === TaskStatus.DRAFT) {
-      await this.tasksRepository.update(task.id, { status: TaskStatus.QUEUED });
-    }
-
-    this.logger.log(`Strategy ${id} (${strategy.type}) activated for task ${task.id}`);
-    return strategy;
-  }
-
-  async deactivate(id: string): Promise<TaskStrategy> {
-    const strategy = await this.findOne(id);
-
-    if (!strategy.isActive) {
-      throw new BadRequestException('Strategy is not active');
-    }
-    if (!REPEATABLE_STRATEGIES.has(strategy.type)) {
-      throw new BadRequestException(
-        'IMMEDIATELY strategies cannot be deactivated — they fire once and complete',
-      );
-    }
-
-    // Remove only this strategy's cron job — other strategies on the same task
-    // keep running untouched
-    this.schedulerService.removeCronJob(strategy.id);
-
-    strategy.isActive = false;
-    await this.strategyRepository.save(strategy);
-
-    // If no other strategy on this task is still active, revert status to DRAFT
-    const stillActive = await this.strategyRepository.findOne({
-      where: { task: { id: strategy.task.id }, isActive: true },
-    });
-    if (!stillActive) {
-      await this.tasksRepository.update(strategy.task.id, { status: TaskStatus.DRAFT });
-    }
-
-    this.logger.log(`Strategy ${id} deactivated for task ${strategy.task.id}`);
-    return strategy;
-  }
-
-  // ---------------------------------------------------------------------------
   // Helpers used by TasksService (disable / delete)
   // ---------------------------------------------------------------------------
 
@@ -296,23 +194,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   private buildFunctionName(task: Task): string {
     const orgName = (task.project as any)?.organization?.name ?? 'default';
     return `${orgName}-${task.name}`;
-  }
-
-  private async deployLambda(task: Task): Promise<void> {
-    if (task.codeType !== TaskCodeType.LAMBDA || !task.lambdaCode) return;
-
-    const orgName = (task.project as any)?.organization?.name ?? 'default';
-    const roleArn = this.configService.get<string>('AWS_LAMBDA_ROLE_ARN', '');
-    const euRegions = Object.keys(EUROPE_AWS_REGION_COUNTRY);
-
-    this.logger.log(`Deploying lambda for task ${task.id} to ${euRegions.length} EU regions`);
-    await this.awsDeployService.deployToMultipleRegions({
-      workloadName: task.name,
-      organization: orgName,
-      regions: euRegions,
-      roleArn,
-      handlerCode: { 'index.js': task.lambdaCode },
-    });
   }
 
   private resolveScheduleParams(strategy: TaskStrategy): {

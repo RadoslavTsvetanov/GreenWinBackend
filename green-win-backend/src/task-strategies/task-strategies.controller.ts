@@ -53,24 +53,4 @@ export class TaskStrategiesController {
     return this.strategiesService.remove(id);
   }
 
-  @Post(':id/activate')
-  @ApiOperation({
-    summary: 'Activate a strategy',
-    description:
-      'For IMMEDIATELY: deploys the lambda and fires it once. ' +
-      'For repeatable strategies: deploys the lambda and starts the cron job. ' +
-      'Pass `parameters` matching the task\'s parameterSchema; required fields are validated.',
-  })
-  activate(@Param('id') id: string, @Body() dto: ActivateStrategyDto) {
-    return this.strategiesService.activate(id, dto.parameters);
-  }
-
-  @Post(':id/deactivate')
-  @ApiOperation({
-    summary: 'Deactivate a repeatable strategy',
-    description: 'Stops the cron job and marks the strategy inactive.',
-  })
-  deactivate(@Param('id') id: string) {
-    return this.strategiesService.deactivate(id);
-  }
 }

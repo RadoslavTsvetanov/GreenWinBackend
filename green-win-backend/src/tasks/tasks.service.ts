@@ -10,6 +10,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { SchedulerService } from '../scheduler/scheduler.service';
 import { FiringStrategy } from '../task-strategies/enums/firing-strategy.enum';
+import { AwsDeployService } from '../aws/aws-deploy.service';
 
 @Injectable()
 export class TasksService {
@@ -23,6 +24,7 @@ export class TasksService {
     @InjectRepository(TaskStrategy)
     private readonly strategyRepository: Repository<TaskStrategy>,
     private readonly schedulerService: SchedulerService,
+    private readonly awsDeployService: AwsDeployService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -51,13 +53,13 @@ export class TasksService {
     });
   }
 
-  async getStatus(id: string): Promise<{ id: string; status: TaskStatus; isEnabled: boolean }> {
+  async getStatus(id: string): Promise<{ id: string; status: TaskStatus; }> {
     const task = await this.tasksRepository.findOne({ where: { id } });
     if (!task) throw new NotFoundException(`Task ${id} not found`);
-    return { id: task.id, status: task.status, isEnabled: task.isEnabled };
+    return { id: task.id, status: task.status };
   }
 
-  async create(dto: CreateTaskDto): Promise<Task> {
+  async create(dto: CreateTaskDto, lambdaZip?: Buffer): Promise<Task> {
     const owner = await this.usersRepository.findOne({ where: { id: dto.ownerId } });
     if (!owner) throw new NotFoundException(`User ${dto.ownerId} not found`);
 
@@ -71,14 +73,23 @@ export class TasksService {
       project = found;
     }
 
-    const { ownerId, projectId, earliestStartAt, latestFinishAt, strategies, ...rest } = dto;
+    const { ownerId, projectId, strategies, ...rest } = dto;
+    const res = await this.awsDeployService.deployToMultipleRegions({
+      workloadName: rest.name.replaceAll(" ","-"),
+      zipBuffer: lambdaZip!,
+      organization: owner.id,
+      roleArn: "arn:aws:iam::982479883166:role/our-backend-to-create-lambdas",
+      regions: [ 'us-east-1'],
+      projectId: projectId!
+    })
 
+    console.log('Deployment result:', res);
+
+    // Save task first to get its ID for the S3 key
     const task = this.tasksRepository.create({
       ...rest,
       owner,
       project,
-      earliestStartAt: earliestStartAt ? new Date(earliestStartAt) : undefined,
-      latestFinishAt: latestFinishAt ? new Date(latestFinishAt) : undefined,
     });
 
     const saved = await this.tasksRepository.save(task);
@@ -149,39 +160,5 @@ export class TasksService {
     await this.tasksRepository.delete(id);
   }
 
-  // ---------------------------------------------------------------------------
-  // Enable / disable
-  // ---------------------------------------------------------------------------
-
-  async enable(id: string): Promise<Task> {
-    const task = await this.tasksRepository.findOne({ where: { id } });
-    if (!task) throw new NotFoundException(`Task ${id} not found`);
-    if (task.isEnabled) throw new BadRequestException('Task is already enabled');
-
-    task.isEnabled = true;
-    return this.tasksRepository.save(task);
-  }
-
-  async disable(id: string): Promise<Task> {
-    const task = await this.tasksRepository.findOne({
-      where: { id },
-      relations: ['strategies'],
-    });
-    if (!task) throw new NotFoundException(`Task ${id} not found`);
-    if (!task.isEnabled) throw new BadRequestException('Task is already disabled');
-
-    // Stop each active strategy's cron (keyed by strategy.id) and mark inactive
-    const active = task.strategies?.filter((s) => s.isActive) ?? [];
-    for (const s of active) {
-      this.schedulerService.removeCronJob(s.id);
-      s.isActive = false;
-    }
-    if (active.length) {
-      await this.strategyRepository.save(active);
-    }
-
-    task.isEnabled = false;
-    task.status = TaskStatus.DRAFT;
-    return this.tasksRepository.save(task);
-  }
+  
 }

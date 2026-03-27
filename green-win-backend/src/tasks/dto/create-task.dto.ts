@@ -63,11 +63,6 @@ export class CreateTaskDto {
   @IsEnum(TaskCodeType)
   codeType?: TaskCodeType;
 
-  @ApiProperty({ required: false, description: 'Inline Lambda handler code' })
-  @IsOptional()
-  @IsString()
-  lambdaCode?: string;
-
   @ApiProperty({ required: false, example: 'my-org/my-image:latest' })
   @IsOptional()
   @IsString()
@@ -84,16 +79,6 @@ export class CreateTaskDto {
   @IsArray()
   @IsString({ each: true })
   allowedRegions?: string[];
-
-  @ApiProperty({ required: false, description: 'ISO 8601 datetime — earliest the task may run' })
-  @IsOptional()
-  @IsDateString()
-  earliestStartAt?: string;
-
-  @ApiProperty({ required: false, description: 'ISO 8601 datetime — deadline for the task' })
-  @IsOptional()
-  @IsDateString()
-  latestFinishAt?: string;
 
   @ApiProperty({ description: 'UUID of the owner user' })
   @IsUUID()
