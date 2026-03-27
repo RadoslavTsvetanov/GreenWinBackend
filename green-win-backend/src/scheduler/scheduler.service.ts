@@ -40,7 +40,7 @@ export class SchedulerService {
       } catch (error) {
         this.logger.error(`Cron job ${jobId} tick failed: ${error.message}`, error.stack);
       }
-    });
+    }, null, false, 'UTC');
 
     this.schedulerRegistry.addCronJob(jobId, job);
     job.start();

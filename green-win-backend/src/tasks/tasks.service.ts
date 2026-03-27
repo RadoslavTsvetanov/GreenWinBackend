@@ -76,7 +76,7 @@ export class TasksService {
 
     const { ownerId, projectId, strategies, ...rest } = dto;
     const res = await this.awsDeployService.deployToMultipleRegions({
-      workloadName: rest.name.replaceAll(" ","-"),
+      workloadName: rest.name.replace(/[^a-zA-Z0-9-]/g, '-'),
       zipBuffer: lambdaZip!,
       organization: owner.id,
       roleArn: "arn:aws:iam::982479883166:role/our-backend-to-create-lambdas",

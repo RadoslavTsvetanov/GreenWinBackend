@@ -423,7 +423,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     const projectId = (task as any).project?.id ?? 'default';
     const ownerShort = ownerId.substring(0, 8);
     const projShort = projectId.substring(0, 8);
-    const workloadName = task.name.replaceAll(' ', '-');
+    const workloadName = task.name.replace(/[^a-zA-Z0-9-]/g, '-');
     return `${ownerShort}-${projShort}-${workloadName}`;
   }
 
