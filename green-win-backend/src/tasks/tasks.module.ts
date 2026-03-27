@@ -3,18 +3,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Task } from './entities/task.entity';
 import { User } from '../users/entities/user.entity';
 import { Project } from '../projects/entities/project.entity';
+import { TaskStrategy } from '../task-strategies/entities/task-strategy.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
-import { AwsModule } from '../aws/aws.module';
 import { SchedulerModule } from '../scheduler/scheduler.module';
-import { PredictionModule } from '../prediction/prediction.module';
+import { AwsModule } from '../aws/aws.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, User, Project]),
-    AwsModule,
+    TypeOrmModule.forFeature([Task, User, Project, TaskStrategy]),
     SchedulerModule,
-    PredictionModule,
+    AwsModule,
   ],
   controllers: [TasksController],
   providers: [TasksService],

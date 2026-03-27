@@ -18,6 +18,7 @@ const AppDataSource = new DataSource({
     'src/organizations/entities/*.entity.ts',
     'src/projects/entities/*.entity.ts',
     'src/tasks/entities/*.entity.ts',
+    'src/task-strategies/entities/*.entity.ts',
     'src/task-executions/entities/*.entity.ts',
     'src/checkpoints/entities/*.entity.ts',
   ],

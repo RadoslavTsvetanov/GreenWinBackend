@@ -11,7 +11,8 @@ import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TaskExecution } from '../../task-executions/entities/task-execution.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
-import { TaskRunMode, TaskStatus, TaskCodeType } from '../enums/task.enums';
+import type { TaskStrategy } from '../../task-strategies/entities/task-strategy.entity';
+import { TaskStatus, TaskCodeType } from '../enums/task.enums';
 
 @Entity('tasks')
 export class Task {
@@ -31,8 +32,9 @@ export class Task {
   })
   codeType: TaskCodeType;
 
+  /** S3 key of the uploaded lambda zip, e.g. "lambda-code/<taskId>.zip" */
   @Column({ type: 'text', nullable: true })
-  lambdaCode: string;
+  lambdaS3Key: string;
 
   @Column({ type: 'text', nullable: true })
   dockerImage: string;
@@ -42,13 +44,6 @@ export class Task {
 
   @Column('text', { array: true, nullable: true })
   allowedRegions: string[];
-
-  @Column({
-    type: 'enum',
-    enum: TaskRunMode,
-    default: TaskRunMode.IMMEDIATE,
-  })
-  runMode: TaskRunMode;
 
   @Column({
     type: 'enum',
@@ -63,6 +58,19 @@ export class Task {
   @Column({ type: 'timestamptz', nullable: true })
   latestFinishAt: Date;
 
+  /**
+   * Declares the parameters this task's lambda expects.
+   * Example: [{ name: "recipient", type: "string", required: true }]
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  parameterSchema: Array<{
+    name: string;
+    type: 'string' | 'number' | 'boolean' | 'object';
+    required?: boolean;
+    default?: any;
+    description?: string;
+  }>;
+
   @ManyToOne(() => User, (user: User) => user.tasks, { onDelete: 'CASCADE' })
   owner: User;
 
@@ -71,6 +79,10 @@ export class Task {
     nullable: true,
   })
   project: Project;
+
+  // String-based target breaks the circular import cycle with task-strategy.entity.ts
+  @OneToMany('TaskStrategy', (s: any) => s.task)
+  strategies: TaskStrategy[];
 
   @OneToMany(() => TaskExecution, (exec: TaskExecution) => exec.task)
   executions: TaskExecution[];
