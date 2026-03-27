@@ -20,7 +20,6 @@ const AppDataSource = new DataSource({
     'src/tasks/entities/*.entity.ts',
     'src/task-strategies/entities/*.entity.ts',
     'src/task-executions/entities/*.entity.ts',
-    'src/checkpoints/entities/*.entity.ts',
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

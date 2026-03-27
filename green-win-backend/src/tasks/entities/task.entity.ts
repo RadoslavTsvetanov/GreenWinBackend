@@ -10,7 +10,6 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TaskExecution } from '../../task-executions/entities/task-execution.entity';
-import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import type { TaskStrategy } from '../../task-strategies/entities/task-strategy.entity';
 import { TaskStatus, TaskCodeType } from '../enums/task.enums';
 
@@ -32,18 +31,6 @@ export class Task {
   })
   codeType: TaskCodeType;
 
-  /** S3 key of the uploaded lambda zip, e.g. "lambda-code/<taskId>.zip" */
-  @Column({ type: 'text', nullable: true })
-  lambdaS3Key: string;
-
-  @Column({ type: 'text', nullable: true })
-  dockerImage: string;
-
-  @Column('text', { array: true, nullable: true })
-  allowedCloudProviders: string[];
-
-  @Column('text', { array: true, nullable: true })
-  allowedRegions: string[];
 
   @Column({
     type: 'enum',
@@ -52,11 +39,6 @@ export class Task {
   })
   status: TaskStatus;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  earliestStartAt: Date;
-
-  @Column({ type: 'timestamptz', nullable: true })
-  latestFinishAt: Date;
 
   /**
    * Declares the parameters this task's lambda expects.
@@ -88,9 +70,6 @@ export class Task {
 
   @OneToMany(() => TaskExecution, (exec: TaskExecution) => exec.task)
   executions: TaskExecution[];
-
-  @OneToMany(() => Checkpoint, (cp: Checkpoint) => cp.task)
-  checkpoints: Checkpoint[];
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;

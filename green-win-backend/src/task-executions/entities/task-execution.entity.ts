@@ -3,12 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
-  OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Task } from '../../tasks/entities/task.entity';
-import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { ExecutionStatus } from '../enums/execution.enums';
 
 @Entity('task_executions')
@@ -51,9 +49,6 @@ export class TaskExecution {
   @Column({ type: 'text', nullable: true })
   errorMessage: string;
 
-  @OneToMany(() => Checkpoint, (cp: Checkpoint) => cp.execution)
-  checkpoints: Checkpoint[];
-
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 
@@ -67,6 +62,4 @@ export class TaskExecution {
   @Column({ type: 'timestamptz', nullable: true })
   finishedAt: Date;
 
-  @Column({ type: 'text', nullable: true })
-  logsUri: string;
 }

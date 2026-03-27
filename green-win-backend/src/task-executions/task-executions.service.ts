@@ -17,21 +17,21 @@ export class TaskExecutionsService {
 
   async findAll(): Promise<TaskExecution[]> {
     return this.executionsRepository.find({
-      relations: ['task', 'checkpoints'],
+      relations: ['task'],
     });
   }
 
   async findOne(id: string): Promise<TaskExecution | null> {
     return this.executionsRepository.findOne({
       where: { id },
-      relations: ['task', 'checkpoints'],
+      relations: ['task'],
     });
   }
 
   async findByTask(taskId: string): Promise<TaskExecution[]> {
     return this.executionsRepository.find({
       where: { task: { id: taskId } },
-      relations: ['task', 'checkpoints'],
+      relations: ['task'],
     });
   }
 

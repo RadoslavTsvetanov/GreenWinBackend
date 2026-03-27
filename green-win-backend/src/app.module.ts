@@ -7,7 +7,6 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TaskExecutionsModule } from './task-executions/task-executions.module';
-import { CheckpointsModule } from './checkpoints/checkpoints.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { CarbonModule } from './carbon/carbon.module';
 import { LambdaModule } from './lambda/lambda.module';
@@ -25,9 +24,8 @@ import { Project } from './projects/entities/project.entity';
 import { Task } from './tasks/entities/task.entity';
 import { TaskStrategy } from './task-strategies/entities/task-strategy.entity';
 import { TaskExecution } from './task-executions/entities/task-execution.entity';
-import { Checkpoint } from './checkpoints/entities/checkpoint.entity';
 
-const ALL_ENTITIES = [User, Organization, Project, Task, TaskStrategy, TaskExecution, Checkpoint];
+const ALL_ENTITIES = [User, Organization, Project, Task, TaskStrategy, TaskExecution];
 
 const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
   const sslEnabled = config.get<string>('DB_SSL', 'false') === 'true';
@@ -64,7 +62,6 @@ const buildTypeOrmOptions = (config: ConfigService): TypeOrmModuleOptions => {
     TasksModule,
     TaskStrategiesModule,
     TaskExecutionsModule,
-    CheckpointsModule,
     GatewayModule,
     CarbonModule,
     LambdaModule,

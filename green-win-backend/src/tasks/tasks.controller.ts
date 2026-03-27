@@ -46,7 +46,7 @@ export class TasksController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a task by ID (includes strategies, executions, checkpoints)' })
+  @ApiOperation({ summary: 'Get a task by ID (includes strategies, executions)' })
   findOne(@Param('id') id: string) {
     return this.tasksService.findOne(id);
   }

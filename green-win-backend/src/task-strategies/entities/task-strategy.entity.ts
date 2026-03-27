@@ -74,10 +74,6 @@ export class TaskStrategy {
   @Column({ type: 'timestamptz', nullable: true })
   lastFiredAt: Date;
 
-  // /** When false the task cannot be activated or executed. */
-  // @Column({ default: true })
-  // isEnabled: boolean;
-
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

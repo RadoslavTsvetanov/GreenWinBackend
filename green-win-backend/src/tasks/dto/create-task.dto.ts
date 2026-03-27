@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsArray,
   IsInt,
-  IsDateString,
   IsUUID,
   IsBoolean,
   Matches,
@@ -101,23 +100,6 @@ export class CreateTaskDto {
   @IsOptional()
   @IsEnum(TaskCodeType)
   codeType?: TaskCodeType;
-
-  @ApiProperty({ required: false, example: 'my-org/my-image:latest' })
-  @IsOptional()
-  @IsString()
-  dockerImage?: string;
-
-  @ApiProperty({ type: [String], required: false, example: ['aws', 'gcp'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  allowedCloudProviders?: string[];
-
-  @ApiProperty({ type: [String], required: false, example: ['eu-west-1'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  allowedRegions?: string[];
 
   @ApiProperty({ description: 'UUID of the owner user' })
   @IsOptional()

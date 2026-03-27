@@ -34,14 +34,14 @@ export class TasksService {
 
   async findAll(): Promise<Task[]> {
     return this.tasksRepository.find({
-      relations: ['owner', 'project', 'project.organization', 'strategies', 'executions', 'checkpoints'],
+      relations: ['owner', 'project', 'project.organization', 'strategies', 'executions'],
     });
   }
 
   async findOne(id: string): Promise<Task> {
     const task = await this.tasksRepository.findOne({
       where: { id },
-      relations: ['owner', 'project', 'project.organization', 'strategies', 'executions', 'checkpoints'],
+      relations: ['owner', 'project', 'project.organization', 'strategies', 'executions'],
     });
     if (!task) throw new NotFoundException(`Task ${id} not found`);
     return task;
@@ -50,7 +50,7 @@ export class TasksService {
   async findByOwner(ownerId: string): Promise<Task[]> {
     return this.tasksRepository.find({
       where: { owner: { id: ownerId } },
-      relations: ['owner', 'project', 'strategies', 'executions', 'checkpoints'],
+      relations: ['owner', 'project', 'strategies', 'executions'],
     });
   }
 
@@ -135,13 +135,9 @@ export class TasksService {
       }
     }
 
-    const { ownerId, projectId, earliestStartAt, latestFinishAt, strategies, ...rest } = dto as any;
+    const { ownerId, projectId, strategies, ...rest } = dto as any;
 
-    Object.assign(task, {
-      ...rest,
-      earliestStartAt: earliestStartAt ? new Date(earliestStartAt) : task.earliestStartAt,
-      latestFinishAt: latestFinishAt ? new Date(latestFinishAt) : task.latestFinishAt,
-    });
+    Object.assign(task, rest);
 
     return this.tasksRepository.save(task);
   }

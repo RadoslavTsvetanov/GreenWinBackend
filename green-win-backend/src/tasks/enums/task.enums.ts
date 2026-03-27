@@ -1,9 +1,3 @@
-// --- Commented out: never used anywhere in the codebase ---
-// export enum TaskRunMode {
-//   IMMEDIATE = 'immediate',
-//   SCHEDULED = 'scheduled',
-// }
-
 export enum TaskStatus {
   DRAFT = 'draft',
   QUEUED = 'queued',
