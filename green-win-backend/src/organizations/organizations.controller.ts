@@ -13,13 +13,19 @@ import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TaskExecution, TaskExecutionsService } from 'src/task-executions';
+import { CarbonService, LambdaExecutionMetrics } from 'src/carbon/carbon.service';
 
 @ApiTags('organizations')
 @ApiBearerAuth('access-token')
 @Controller('organizations')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly tasksExecutionService: TaskExecutionsService,
+    private readonly carbonService: CarbonService
+  ) {}
 
   @Post()
   create(@Body() createOrganizationDto: CreateOrganizationDto) {
@@ -75,4 +81,38 @@ export class OrganizationsController {
   ) {
     return this.organizationsService.updateEnergySaved(id, energySaved);
   }
+  
+  @Get(':organizationId/carbon-footprint/real')
+  async getRealCarbonFootprint(
+    @Param("organizationId") id: string
+  ) {
+    let totalEmissions = 0;
+     (await this.tasksExecutionService.findAll()).forEach(taskExecution => {
+      totalEmissions += taskExecution.metrics.estimatedEmissionsGco2
+    })
+     return totalEmissions
+  }
+  
+  @Get(':organizationId/carbon-footprint/regional/:region')
+  async estiamteFootprintForRegion(
+    @Param("organizationId") id: string,
+    @Param("region") region: string
+  ) {
+    let totalEmissions = 0;
+    (await this.tasksExecutionService.findAll()).forEach(
+      
+      async taskExecution => {
+        
+        const carbonIndex = await this.carbonService.getCarbonIntensityFromDate(taskExecution.createdAt,region) 
+        console.log("fofofof", carbonIndex, taskExecution.metrics, {"billedDurationMs": taskExecution.metrics.billedDurationMs, "memoryUsedMB": taskExecution.metrics.maxMemoryUsedMb})
+        const lambdaFootprint = this.carbonService.calculateLambdaCarbonFootprint({"billedDurationMs": taskExecution.metrics.billedDurationMs, "memoryUsedMB": taskExecution.metrics.maxMemoryUsedMb}, carbonIndex)
+        console.log("ddd", lambdaFootprint)
+        totalEmissions += lambdaFootprint.carbonFootprintGCO2
+      }
+    )
+
+    return totalEmissions
+  }
+
+  
 }
