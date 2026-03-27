@@ -143,8 +143,7 @@ export class OrganizationsService {
         status: e.status,
         provider: e.provider,
         region: e.region,
-        startedAt: e.startedAt,
-        finishedAt: e.finishedAt,
+        scheduledAt: e.scheduledAt,
         metrics: e.metrics,
         createdAt: e.createdAt,
       }));

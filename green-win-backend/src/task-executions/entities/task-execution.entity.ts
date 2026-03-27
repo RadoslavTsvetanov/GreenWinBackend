@@ -9,8 +9,7 @@ import {
 } from 'typeorm';
 import { Task } from '../../tasks/entities/task.entity';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
-import { ExecutionStatus, TaskPeriodicity } from '../enums/execution.enums';
-import { ExecutionWindow } from '../interfaces/execution-window.interface';
+import { ExecutionStatus } from '../enums/execution.enums';
 
 @Entity('task_executions')
 export class TaskExecution {
@@ -38,39 +37,19 @@ export class TaskExecution {
   @Column({ type: 'timestamptz', nullable: true })
   scheduledAt: Date;
 
+  /** Start of the time range that was evaluated for this execution. */
   @Column({ type: 'timestamptz', nullable: true })
-  executionDate: Date; // The actual date when the task was/will be executed
+  rangeStart: Date;
 
+  /** End of the time range that was evaluated for this execution. */
   @Column({ type: 'timestamptz', nullable: true })
-  startDate: Date; // Start of execution window/range
-
-  @Column({ type: 'timestamptz', nullable: true })
-  endDate: Date; // End of execution window/range
-
-  @Column({
-    type: 'enum',
-    enum: TaskPeriodicity,
-    default: TaskPeriodicity.ONCE,
-  })
-  periodicity: TaskPeriodicity;
-
-  @Column({ type: 'jsonb', nullable: true })
-  executionWindows: ExecutionWindow[]; // Array of time windows for execution
-
-  @Column({ type: 'timestamptz', nullable: true })
-  startedAt: Date;
-
-  @Column({ type: 'timestamptz', nullable: true })
-  finishedAt: Date;
+  rangeEnd: Date;
 
   @Column({ type: 'jsonb', nullable: true })
   metrics: Record<string, any>; // emissions, energy_mix, cost, etc.
 
   @Column({ type: 'text', nullable: true })
   errorMessage: string;
-
-  @Column({ type: 'text', nullable: true })
-  logsUri: string; // link to logs storage
 
   @OneToMany(() => Checkpoint, (cp: Checkpoint) => cp.execution)
   checkpoints: Checkpoint[];
@@ -80,4 +59,14 @@ export class TaskExecution {
 
   @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
   updatedAt: Date;
+
+  /** Actual execution timing — may be needed later */
+  @Column({ type: 'timestamptz', nullable: true })
+  startedAt: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  finishedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  logsUri: string;
 }

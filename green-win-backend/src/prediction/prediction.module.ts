@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PredictionService } from './prediction.service';
 import { PredictionController } from './prediction.controller';
-import { CarbonModule } from '../carbon/carbon.module';
 
 @Module({
-  imports: [CarbonModule],
+  imports: [ConfigModule],
   controllers: [PredictionController],
   providers: [PredictionService],
   exports: [PredictionService],

@@ -9,7 +9,7 @@ import { TaskStatus } from './enums/task.enums';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { SchedulerService } from '../scheduler/scheduler.service';
-import { FiringStrategy } from '../task-strategies/enums/firing-strategy.enum';
+import { Periodicity } from '../task-strategies/enums/firing-strategy.enum';
 import { AwsDeployService } from '../aws/aws-deploy.service';
 
 @Injectable()
@@ -97,12 +97,14 @@ export class TasksService {
     // Pre-attach any strategies requested at creation time (all inactive)
     if (strategies?.length) {
       const strategyEntities = strategies.map((s) => {
-        if (s.type === FiringStrategy.CUSTOM && !s.cronExpression) {
-          throw new BadRequestException('cronExpression is required for CUSTOM strategies');
-        }
         return this.strategyRepository.create({
           task: saved,
-          type: s.type,
+          periodicity: s.periodicity,
+          times: s.times,
+          timeRanges: s.timeRanges,
+          executionTime: s.executionTime,
+          dayOfWeek: s.dayOfWeek,
+          dayOfMonth: s.dayOfMonth,
           cronExpression: s.cronExpression,
         });
       });
