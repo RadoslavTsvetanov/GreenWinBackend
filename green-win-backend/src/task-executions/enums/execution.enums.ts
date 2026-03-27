@@ -8,12 +8,13 @@ export enum ExecutionStatus {
   RETRYING = 'retrying',
 }
 
-export enum TaskPeriodicity {
-  ONCE = 'once',
-  DAILY = 'daily',
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-  QUARTERLY = 'quarterly',
-  YEARLY = 'yearly',
-  CUSTOM = 'custom',
-}
+// --- Commented out: periodicity belongs on the strategy, not the execution ---
+// export enum TaskPeriodicity {
+//   ONCE = 'once',
+//   DAILY = 'daily',
+//   WEEKLY = 'weekly',
+//   MONTHLY = 'monthly',
+//   QUARTERLY = 'quarterly',
+//   YEARLY = 'yearly',
+//   CUSTOM = 'custom',
+// }

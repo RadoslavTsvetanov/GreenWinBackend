@@ -3,11 +3,11 @@ import {
   IsOptional,
   IsEnum,
   IsDateString,
-  IsArray,
   IsUUID,
+  IsObject,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ExecutionStatus, TaskPeriodicity } from '../enums/execution.enums';
+import { ExecutionStatus } from '../enums/execution.enums';
 
 export class CreateTaskExecutionDto {
   @ApiProperty({ description: 'UUID of the task to execute' })
@@ -29,43 +29,28 @@ export class CreateTaskExecutionDto {
   @IsString()
   region?: string;
 
-  @ApiProperty({ required: false, description: 'ISO 8601 datetime' })
+  @ApiProperty({ required: false, description: 'When the execution was scheduled to run (ISO 8601)' })
   @IsOptional()
   @IsDateString()
   scheduledAt?: string;
 
-  @ApiProperty({ required: false, description: 'ISO 8601 datetime' })
+  @ApiProperty({ required: false, description: 'Start of the time range evaluated (ISO 8601)' })
   @IsOptional()
   @IsDateString()
-  executionDate?: string;
+  rangeStart?: string;
 
-  @ApiProperty({ required: false, description: 'Start of execution window, ISO 8601' })
+  @ApiProperty({ required: false, description: 'End of the time range evaluated (ISO 8601)' })
   @IsOptional()
   @IsDateString()
-  startDate?: string;
+  rangeEnd?: string;
 
-  @ApiProperty({ required: false, description: 'End of execution window, ISO 8601' })
+  @ApiProperty({ required: false, description: 'Execution metrics (emissions, cost, etc.)' })
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  @IsObject()
+  metrics?: Record<string, any>;
 
-  @ApiProperty({ enum: TaskPeriodicity, default: TaskPeriodicity.ONCE, required: false })
+  @ApiProperty({ required: false })
   @IsOptional()
-  @IsEnum(TaskPeriodicity)
-  periodicity?: TaskPeriodicity;
-
-  @ApiProperty({
-    required: false,
-    type: 'array',
-    items: { type: 'object' },
-    description: 'Array of execution windows',
-  })
-  @IsOptional()
-  @IsArray()
-  executionWindows?: Array<{
-    startDate?: string;
-    endDate?: string;
-    executeAsap?: boolean;
-    priority?: number;
-  }>;
+  @IsString()
+  errorMessage?: string;
 }

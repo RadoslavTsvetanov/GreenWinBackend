@@ -10,12 +10,15 @@ import {
   Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TaskExecutionsService } from 'src/task-executions';
 
+@ApiTags('organizations')
+@ApiBearerAuth('access-token')
 @Controller('organizations')
 // @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
@@ -76,6 +79,17 @@ export class OrganizationsController {
   @Get()
   findAll() {
     return this.organizationsService.findAll();
+  }
+
+  @Get(':id/dashboard')
+  @ApiOperation({
+    summary: 'Get organization dashboard',
+    description:
+      'Returns comprehensive dashboard data: org info, project/task/execution/strategy counts, ' +
+      'carbon & sustainability metrics, per-project summaries, and recent executions.',
+  })
+  getDashboard(@Param('id') id: string) {
+    return this.organizationsService.getDashboard(id);
   }
 
   @Get(':id')

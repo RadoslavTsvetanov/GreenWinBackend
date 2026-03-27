@@ -10,18 +10,16 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { TaskStrategy } from './entities/task-strategy.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { TaskExecution } from '../task-executions/entities/task-execution.entity';
+import { ExecutionStatus } from '../task-executions/enums/execution.enums';
 import { CreateTaskStrategyDto } from './dto/create-task-strategy.dto';
-import {
-  FiringStrategy,
-  REPEATABLE_STRATEGIES,
-  STRATEGY_CRON,
-} from './enums/firing-strategy.enum';
-import { TaskStatus, TaskCodeType } from '../tasks/enums/task.enums';
-import { AwsDeployService } from '../aws/aws-deploy.service';
-import { LambdaService } from '../lambda/lambda.service';
+import { Periodicity } from './enums/firing-strategy.enum';
+import { TaskStatus } from '../tasks/enums/task.enums';
+import { LambdaService, LambdaInvocationResult } from '../lambda/lambda.service';
 import { SchedulerService } from '../scheduler/scheduler.service';
 import { PredictionService } from '../prediction/prediction.service';
 import { EUROPE_AWS_REGION_COUNTRY } from '../carbon/constants/aws-regions';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 @Injectable()
 export class TaskStrategiesService implements OnApplicationBootstrap {
@@ -32,10 +30,12 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     private readonly strategyRepository: Repository<TaskStrategy>,
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
-    private readonly awsDeployService: AwsDeployService,
+    @InjectRepository(TaskExecution)
+    private readonly executionRepository: Repository<TaskExecution>,
     private readonly lambdaService: LambdaService,
     private readonly schedulerService: SchedulerService,
     private readonly predictionService: PredictionService,
+    private readonly organizationsService: OrganizationsService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -62,7 +62,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
 
     const active = await this.strategyRepository.find({
       where: { isActive: true },
-      relations: ['task', 'task.project', 'task.project.organization'],
+      relations: ['task', 'task.owner', 'task.project', 'task.project.organization'],
     });
 
     if (!active.length) {
@@ -74,7 +74,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     for (const strategy of active) {
       if (!strategy.task) {
         this.logger.warn(
-          `[RECOVERY] Strategy ${strategy.id} belongs to disabled task — skipping`,
+          `[RECOVERY] Strategy ${strategy.id} has no task — skipping`,
         );
         continue;
       }
@@ -94,8 +94,9 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
             payload: strategy.parameters,
           });
         }
+        await this.scheduleStrategy(strategy);
         this.logger.log(
-          `[RECOVERY] Restored cron for strategy ${strategy.id} (${strategy.type})`,
+          `[RECOVERY] Restored cron for strategy ${strategy.id} (${strategy.periodicity})`,
         );
         restored++;
       } catch (err: any) {
@@ -120,7 +121,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   async findOne(id: string): Promise<TaskStrategy> {
     const strategy = await this.strategyRepository.findOne({
       where: { id },
-      relations: ['task', 'task.project', 'task.project.organization'],
+      relations: ['task', 'task.owner', 'task.project', 'task.project.organization'],
     });
     if (!strategy) throw new NotFoundException(`TaskStrategy ${id} not found`);
     return strategy;
@@ -146,10 +147,16 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     if (dto.type === FiringStrategy.DAILY_IN_RANGE && (!dto.timeRanges || !dto.timeRanges.length)) {
       throw new BadRequestException('timeRanges array is required for DAILY_IN_RANGE strategies');
     }
+    this.validateStrategyFields(dto);
 
     const strategy = this.strategyRepository.create({
       task,
-      type: dto.type,
+      periodicity: dto.periodicity,
+      times: dto.times,
+      timeRanges: dto.timeRanges,
+      executionTime: dto.executionTime,
+      dayOfWeek: dto.dayOfWeek,
+      dayOfMonth: dto.dayOfMonth,
       cronExpression: dto.cronExpression,
       times: dto.times,
       timeRanges: dto.timeRanges,
@@ -233,16 +240,14 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
       throw new BadRequestException('Strategy is not active');
     }
 
-    // Remove all cron jobs for this strategy (handles multi-time strategies)
     this.removeAllCronJobsForStrategy(strategy);
-
     strategy.isActive = false;
     return this.strategyRepository.save(strategy);
   }
 
   /**
    * Manually invoke a strategy once on the greenest server right now.
-   * Does NOT change the activation state — the schedule keeps running if active.
+   * Does NOT change the activation state.
    */
   async invoke(
     id: string,
@@ -262,8 +267,9 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
 
     strategy.lastFiredAt = new Date();
     await this.strategyRepository.save(strategy);
+    await this.recordInvocation(strategy, result);
 
-    return { result };
+    return { result: result.payload };
   }
 
   // ---------------------------------------------------------------------------
@@ -282,7 +288,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   }
 
   // ---------------------------------------------------------------------------
-  // Private helpers
+  // Private: scheduling
   // ---------------------------------------------------------------------------
 
   /**
@@ -381,32 +387,105 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Private: helpers
+  // ---------------------------------------------------------------------------
+
   private buildFunctionName(task: Task): string {
-    const orgName = (task.project as any)?.organization?.name ?? 'default';
-    return `${orgName}-${task.name}`;
+    const ownerId = (task as any).owner?.id ?? 'default';
+    const projectId = (task as any).project?.id ?? 'default';
+    const ownerShort = ownerId.substring(0, 8);
+    const projShort = projectId.substring(0, 8);
+    const workloadName = task.name.replace(/[^a-zA-Z0-9-]/g, '-');
+    return `${ownerShort}-${projShort}-${workloadName}`;
   }
 
-  private resolveScheduleParams(strategy: TaskStrategy): {
-    functionName: string;
-    cronExpression: string;
-  } {
-    const functionName = this.buildFunctionName(strategy.task);
+  /**
+   * Creates an execution record with real AWS metrics + mock carbon data,
+   * and propagates emissions to the organization totals.
+   */
+  private async recordInvocation(
+    strategy: TaskStrategy,
+    result: LambdaInvocationResult,
+  ): Promise<TaskExecution> {
+    const execution = this.executionRepository.create({
+      task: strategy.task,
+      status: ExecutionStatus.SUCCEEDED,
+      provider: 'aws',
+      region: result.region,
+      scheduledAt: new Date(),
+      metrics: result.metrics,
+    });
+    const saved = await this.executionRepository.save(execution);
 
-    if (strategy.type === FiringStrategy.CUSTOM) {
-      if (!strategy.cronExpression) {
-        throw new BadRequestException(
-          `CUSTOM strategy ${strategy.id} has no cronExpression`,
-        );
-      }
-      return { functionName, cronExpression: strategy.cronExpression };
+    // Propagate emissions to organization
+    const orgId = (strategy.task.project as any)?.organization?.id;
+    if (orgId) {
+      const emissionsKg = result.metrics.estimatedEmissionsGco2 / 1000;
+      await this.organizationsService.updateEmissions(orgId, emissionsKg);
+      await this.organizationsService.incrementTasksExecuted(orgId);
     }
 
-    const cronExpression = STRATEGY_CRON[strategy.type];
-    if (!cronExpression) {
-      throw new BadRequestException(
-        `No cron mapping for strategy type ${strategy.type}`,
-      );
+    strategy.lastFiredAt = new Date();
+    await this.strategyRepository.save(strategy);
+
+    return saved;
+  }
+
+  private validateStrategyFields(dto: CreateTaskStrategyDto): void {
+    const { periodicity, times, timeRanges, executionTime, dayOfWeek, dayOfMonth, cronExpression } = dto;
+
+    // cronExpression overrides everything, no further validation needed
+    if (cronExpression) return;
+
+    switch (periodicity) {
+      case Periodicity.ONCE:
+        if (!executionTime && !timeRanges?.length) {
+          throw new BadRequestException('ONCE strategy requires executionTime or timeRanges');
+        }
+        if (times?.length) {
+          throw new BadRequestException('ONCE strategy does not support multiple times — use executionTime');
+        }
+        break;
+
+      case Periodicity.DAILY:
+        if (!times?.length && !timeRanges?.length) {
+          throw new BadRequestException('DAILY strategy requires times or timeRanges');
+        }
+        if (executionTime) {
+          throw new BadRequestException('DAILY strategy does not use executionTime — use times');
+        }
+        break;
+
+      case Periodicity.WEEKLY:
+        if (!executionTime && !timeRanges?.length) {
+          throw new BadRequestException('WEEKLY strategy requires executionTime or timeRanges');
+        }
+        if (times?.length) {
+          throw new BadRequestException('WEEKLY strategy does not support multiple times');
+        }
+        if (timeRanges && timeRanges.length > 1) {
+          throw new BadRequestException('WEEKLY strategy supports only one timeRange');
+        }
+        if (dayOfWeek === undefined || dayOfWeek === null) {
+          throw new BadRequestException('WEEKLY strategy requires dayOfWeek');
+        }
+        break;
+
+      case Periodicity.MONTHLY:
+        if (!executionTime && !timeRanges?.length) {
+          throw new BadRequestException('MONTHLY strategy requires executionTime or timeRanges');
+        }
+        if (times?.length) {
+          throw new BadRequestException('MONTHLY strategy does not support multiple times');
+        }
+        if (timeRanges && timeRanges.length > 1) {
+          throw new BadRequestException('MONTHLY strategy supports only one timeRange');
+        }
+        if (dayOfMonth === undefined || dayOfMonth === null) {
+          throw new BadRequestException('MONTHLY strategy requires dayOfMonth');
+        }
+        break;
     }
-    return { functionName, cronExpression };
   }
 }

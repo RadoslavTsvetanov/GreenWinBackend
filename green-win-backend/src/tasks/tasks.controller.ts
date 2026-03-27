@@ -23,6 +23,8 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('tasks')
 @ApiBearerAuth('access-token')
@@ -84,6 +86,7 @@ export class TasksController {
   })
   @UseInterceptors(FileInterceptor('lambdaZip'))
   create(
+    @CurrentUser() user: User,
     @Body('data') rawData: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -93,6 +96,8 @@ export class TasksController {
     } catch {
       throw new BadRequestException('`data` field must be valid JSON');
     }
+    // Always use the authenticated user's ID, ignore whatever the DTO says
+    dto.ownerId = user.id;
     return this.tasksService.create(dto, file?.buffer);
   }
 

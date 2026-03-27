@@ -67,7 +67,9 @@ export class Task {
     description?: string;
   }>;
 
-  @ManyToOne(() => User, (user: User) => user.tasks, { onDelete: 'CASCADE' })
+
+  //this should be removed
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   owner: User;
 
   @ManyToOne(() => Project, (project) => project.tasks, {

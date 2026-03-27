@@ -1,15 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { LambdaService } from '../lambda/lambda.service';
+import { LambdaService, LambdaInvocationResult } from '../lambda/lambda.service';
 
 export interface ScheduledTask {
-  /** Unique key for this cron slot. Use strategy.id so multiple strategies on
-   *  the same task each get their own independent cron job. */
+  /** Unique key for this cron slot. */
   jobId: string;
   functionName: string;
   cronExpression: string;
   payload?: Record<string, unknown>;
+  /** Called after each successful invocation with the full result (metrics, region, etc.). */
+  onSuccess?: (result: LambdaInvocationResult) => Promise<void>;
 }
 
 @Injectable()
@@ -26,17 +27,20 @@ export class SchedulerService {
   // -------------------------------------------------------------------------
 
   scheduleLambdaCall(scheduledTask: ScheduledTask): void {
-    const { jobId, functionName, cronExpression, payload } = scheduledTask;
+    const { jobId, functionName, cronExpression, payload, onSuccess } = scheduledTask;
 
     const job = new CronJob(cronExpression, async () => {
       this.logger.log(`Executing cron job ${jobId} → ${functionName}`);
       try {
         const result = await this.lambdaService.invokeGreenHandler(functionName, payload);
-        this.logger.log(`Cron job ${jobId} tick succeeded: ${JSON.stringify(result)}`);
+        this.logger.log(`Cron job ${jobId} tick succeeded`);
+        if (onSuccess) {
+          await onSuccess(result);
+        }
       } catch (error) {
         this.logger.error(`Cron job ${jobId} tick failed: ${error.message}`, error.stack);
       }
-    });
+    }, null, false, 'UTC');
 
     this.schedulerRegistry.addCronJob(jobId, job);
     job.start();
@@ -54,8 +58,6 @@ export class SchedulerService {
   ): void {
     const key = `once:${taskId}`;
 
-    // CronJob accepts a Date as its first argument; it fires once when that
-    // moment is reached and does not repeat.
     const job = new CronJob(runAt, async () => {
       this.logger.log(`Executing one-shot cron ${key}`);
       try {
@@ -64,7 +66,6 @@ export class SchedulerService {
       } catch (error) {
         this.logger.error(`One-shot cron ${key} failed: ${error.message}`, error.stack);
       } finally {
-        // Explicitly stop and deregister so the registry stays clean
         job.stop();
         try {
           this.schedulerRegistry.deleteCronJob(key);

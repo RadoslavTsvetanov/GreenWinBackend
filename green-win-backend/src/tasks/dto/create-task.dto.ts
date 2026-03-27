@@ -3,15 +3,20 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  IsInt,
   IsDateString,
   IsUUID,
   IsBoolean,
+  Matches,
+  Min,
+  Max,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskCodeType } from '../enums/task.enums';
-import { FiringStrategy } from '../../task-strategies/enums/firing-strategy.enum';
+import { Periodicity } from '../../task-strategies/enums/firing-strategy.enum';
+import { TimeRangeDto } from '../../task-strategies/dto/create-task-strategy.dto';
 
 class ParameterSchemaItemDto {
   @ApiProperty({ example: 'recipient' })
@@ -38,11 +43,45 @@ class ParameterSchemaItemDto {
 }
 
 class StrategyInputDto {
-  @ApiProperty({ enum: FiringStrategy })
-  @IsEnum(FiringStrategy)
-  type: FiringStrategy;
+  @ApiProperty({ enum: Periodicity })
+  @IsEnum(Periodicity)
+  periodicity: Periodicity;
 
-  @ApiProperty({ required: false, description: 'Required when type is CUSTOM' })
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Matches(/^\d{2}:\d{2}$/, { each: true })
+  times?: string[];
+
+  @ApiProperty({ required: false, type: [TimeRangeDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TimeRangeDto)
+  timeRanges?: TimeRangeDto[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/)
+  executionTime?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  dayOfWeek?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  dayOfMonth?: number;
+
+  @ApiProperty({ required: false, description: 'Raw cron override' })
   @IsOptional()
   @IsString()
   cronExpression?: string;
@@ -81,6 +120,7 @@ export class CreateTaskDto {
   allowedRegions?: string[];
 
   @ApiProperty({ description: 'UUID of the owner user' })
+  @IsOptional()
   @IsUUID()
   ownerId: string;
 

@@ -9,8 +9,9 @@ import { TaskStatus } from './enums/task.enums';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { SchedulerService } from '../scheduler/scheduler.service';
-import { FiringStrategy } from '../task-strategies/enums/firing-strategy.enum';
+import { Periodicity } from '../task-strategies/enums/firing-strategy.enum';
 import { AwsDeployService } from '../aws/aws-deploy.service';
+import { EUROPE_AWS_REGION_COUNTRY } from '../carbon/constants/aws-regions';
 
 @Injectable()
 export class TasksService {
@@ -81,7 +82,7 @@ export class TasksService {
 
     const { ownerId, projectId, strategies, ...rest } = dto;
     const res = await this.awsDeployService.deployToMultipleRegions({
-      workloadName: rest.name.replaceAll(" ","-"),
+      workloadName: rest.name.replace(/[^a-zA-Z0-9-]/g, '-'),
       zipBuffer: lambdaZip!,
       organization: owner.id,
       roleArn: "arn:aws:iam::982479883166:role/our-backend-to-create-lambdas",
@@ -103,12 +104,14 @@ export class TasksService {
     // Pre-attach any strategies requested at creation time (all inactive)
     if (strategies?.length) {
       const strategyEntities = strategies.map((s) => {
-        if (s.type === FiringStrategy.CUSTOM && !s.cronExpression) {
-          throw new BadRequestException('cronExpression is required for CUSTOM strategies');
-        }
         return this.strategyRepository.create({
           task: saved,
-          type: s.type,
+          periodicity: s.periodicity,
+          times: s.times,
+          timeRanges: s.timeRanges,
+          executionTime: s.executionTime,
+          dayOfWeek: s.dayOfWeek,
+          dayOfMonth: s.dayOfMonth,
           cronExpression: s.cronExpression,
         });
       });
