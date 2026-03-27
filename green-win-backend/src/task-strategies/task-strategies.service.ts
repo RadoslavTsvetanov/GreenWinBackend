@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   OnApplicationBootstrap,
@@ -164,14 +165,20 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     strategy.activatedAt = new Date();
 
     if (strategy.periodicity === Periodicity.ONCE) {
-      // For "once" strategies, fire immediately on the greenest server
       const functionName = this.buildFunctionName(strategy.task);
-      this.logger.log(`One-time invocation of ${functionName}`);
-      const result = await this.lambdaService.invokeGreenHandler(functionName, strategy.parameters);
-      strategy.lastFiredAt = new Date();
-      strategy.isActive = false; // One-shot, done
-      await this.recordInvocation(strategy, result);
-      return this.strategyRepository.save(strategy);
+      this.logger.log(`[activate] ONCE — functionName=${functionName}, task.owner=${strategy.task?.owner?.id}, task.project=${strategy.task?.project?.id}`);
+      try {
+        const result = await this.lambdaService.invokeGreenHandler(functionName, strategy.parameters ?? undefined);
+        strategy.lastFiredAt = new Date();
+        strategy.isActive = false;
+        await this.recordInvocation(strategy, result);
+        return this.strategyRepository.save(strategy);
+      } catch (err: any) {
+        this.logger.error(`[activate] ONCE invocation failed: ${err?.message}`, err?.stack);
+        strategy.isActive = false;
+        await this.strategyRepository.save(strategy);
+        throw new InternalServerErrorException(`Lambda invocation failed: ${err?.message}`);
+      }
     }
 
     // Repeatable: schedule cron jobs
