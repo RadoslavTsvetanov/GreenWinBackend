@@ -108,7 +108,7 @@ export class TasksController {
     } catch {
       throw new BadRequestException('`data` field must be valid JSON');
     }
-    // Always use the authenticated user's ID, ignore whatever the DTO says
+    
     dto.ownerId = user.id;
     return this.tasksService.create(dto, file?.buffer);
   }

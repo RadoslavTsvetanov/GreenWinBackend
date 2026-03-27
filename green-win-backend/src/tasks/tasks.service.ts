@@ -28,10 +28,6 @@ export class TasksService {
     private readonly awsDeployService: AwsDeployService,
   ) {}
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
   async findAll(): Promise<Task[]> {
     return this.tasksRepository.find({
       relations: ['owner', 'project', 'project.organization', 'strategies', 'executions'],
@@ -86,7 +82,6 @@ export class TasksService {
 
     console.log('Deployment result:', res);
 
-    // Save task first to get its ID for the S3 key
     const task = this.tasksRepository.create({
       ...rest,
       owner,
@@ -95,7 +90,6 @@ export class TasksService {
 
     const saved = await this.tasksRepository.save(task);
 
-    // Pre-attach any strategies requested at creation time (all inactive)
     if (strategies?.length) {
       const strategyEntities = strategies.map((s) => {
         return this.strategyRepository.create({
@@ -152,13 +146,11 @@ export class TasksService {
     const executions = task.executions ?? [];
     const strategies = task.strategies ?? [];
 
-    // Sort executions newest first
     const sorted = [...executions].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
     const latest = sorted[0] ?? null;
 
-    // Aggregate CO2 from all executions
     const totalCo2Grams = executions.reduce(
       (sum, e) => sum + (e.metrics?.estimatedEmissionsGco2 ?? 0),
       0,
@@ -168,7 +160,6 @@ export class TasksService {
       0,
     );
 
-    // Derive execution mode from strategies
     const activeStrategy = strategies.find((s) => s.isActive) ?? strategies[0];
     const executionMode = activeStrategy?.periodicity ?? null;
 
@@ -196,7 +187,6 @@ export class TasksService {
     });
     if (!task) throw new NotFoundException(`Task ${id} not found`);
 
-    // Stop all active cron jobs before deleting (each keyed by strategy.id)
     for (const s of task.strategies ?? []) {
       if (s.isActive) {
         this.schedulerService.removeCronJob(s.id);

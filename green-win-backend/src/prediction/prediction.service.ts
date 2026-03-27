@@ -13,7 +13,6 @@ export interface PredictionResult {
   estimatedCarbonIntensity: number;
 }
 
-/** Reverse map: country code → AWS region */
 const COUNTRY_TO_AWS_REGION: Record<string, string> = {};
 for (const [region, country] of Object.entries(EUROPE_AWS_REGION_COUNTRY)) {
   COUNTRY_TO_AWS_REGION[country] = region;
@@ -51,7 +50,6 @@ export class PredictionService {
 
       const data = await response.json();
 
-      // Map the model's country zone (e.g. "SE") to an AWS region (e.g. "eu-north-1")
       const awsRegion = COUNTRY_TO_AWS_REGION[data.best_region] ?? 'eu-north-1';
 
       this.logger.log(
@@ -73,14 +71,13 @@ export class PredictionService {
     }
   }
 
-  /** Simple fallback if the model service is unavailable. */
   private fallbackPrediction(start: Date, end: Date): PredictionResult {
     const midpoint = new Date(
       start.getTime() + (end.getTime() - start.getTime()) / 2,
     );
     return {
       optimalDate: midpoint,
-      region: 'eu-north-1', // Sweden — lowest mock carbon intensity
+      region: 'eu-north-1',
       estimatedCarbonIntensity: 13,
     };
   }

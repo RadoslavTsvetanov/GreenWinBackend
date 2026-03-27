@@ -101,7 +101,6 @@ export class OrganizationsService {
       throw new NotFoundException(`Organization with ID ${id} not found`);
     }
 
-    // Load all projects with their tasks, strategies, and executions
     const projects = await this.projectRepository.find({
       where: { organization: { id } },
       relations: [
@@ -116,22 +115,18 @@ export class OrganizationsService {
     const allExecutions = allTasks.flatMap((t) => t.executions ?? []);
     const allStrategies = allTasks.flatMap((t) => t.strategies ?? []);
 
-    // Task counts by status
     const tasksByStatus: Record<string, number> = {};
     for (const t of allTasks) {
       tasksByStatus[t.status] = (tasksByStatus[t.status] ?? 0) + 1;
     }
 
-    // Execution counts by status
     const executionsByStatus: Record<string, number> = {};
     for (const e of allExecutions) {
       executionsByStatus[e.status] = (executionsByStatus[e.status] ?? 0) + 1;
     }
 
-    // Active strategies count
     const activeStrategies = allStrategies.filter((s) => s.isActive).length;
 
-    // Most recent executions (last 10)
     const recentExecutions = [...allExecutions]
       .sort(
         (a, b) =>
@@ -148,7 +143,6 @@ export class OrganizationsService {
         createdAt: e.createdAt,
       }));
 
-    // Per-project summaries
     const projectSummaries = projects.map((p) => {
       const tasks = p.tasks ?? [];
       const executions = tasks.flatMap((t) => t.executions ?? []);
@@ -176,7 +170,6 @@ export class OrganizationsService {
       };
     });
 
-    // Carbon / sustainability numbers
     const monthlyEmissionsUsagePercent =
       organization.monthlyEmissionsTarget && organization.monthlyEmissionsTarget > 0
         ? Number(

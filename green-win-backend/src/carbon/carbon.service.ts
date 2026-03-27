@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { EUROPE_AWS_REGION_COUNTRY } from './constants/aws-regions';
 
-// Static mock carbon intensity values (gCO₂eq/kWh) per country code
 const MOCK_CARBON_INTENSITY: Record<string, number> = {
-  DE: 350, // Germany
-  CH: 18, // Switzerland
-  SE: 13, // Sweden
-  IT: 233, // Italy
-  ES: 165, // Spain
-  IE: 290, // Ireland
-  GB: 210, // United Kingdom
-  FR: 56, // France
-  US: 40, // United States (average)
+  DE: 350,
+  CH: 18,
+  SE: 13,
+  IT: 233,
+  ES: 165,
+  IE: 290,
+  GB: 210,
+  FR: 56,
+  US: 40,
 };
 
 export interface EuropeRegionCarbonEntry {
@@ -32,9 +31,7 @@ export interface CarbonFootprintResult {
 
 @Injectable()
 export class CarbonService {
-  // Power consumption constants for Lambda
-  // Based on AWS Lambda power consumption estimates
-  private readonly LAMBDA_POWER_PER_GB_MS = 0.0000166667; // Watts per GB-ms
+  private readonly LAMBDA_POWER_PER_GB_MS = 0.0000166667;
 
   async getCarbonIntensity(countryCode: string): Promise<number> {
     const value = MOCK_CARBON_INTENSITY[countryCode];
@@ -60,8 +57,6 @@ export class CarbonService {
   }
 
   async getCarbonIntensityFromDate(date: Date, region: string): Promise<number> {
-    // TODO: Integrate with real-time carbon intensity API
-    // For now, return mock data based on region
     const regionToCountry: Record<string, string> = {
       'us-east-1': 'US',
       'us-west-1': 'US',
@@ -78,30 +73,18 @@ export class CarbonService {
     return this.getCarbonIntensity(countryCode);
   }
 
-  /**
-   * Calculate carbon footprint for a Lambda execution
-   * Formula:
-   * 1. Energy (kWh) = Power (W) × Time (h)
-   * 2. Power (W) = Memory (GB) × Power per GB-ms × Duration (ms)
-   * 3. Carbon Footprint (gCO2) = Energy (kWh) × Carbon Intensity (gCO2/kWh)
-   */
   calculateLambdaCarbonFootprint(
     metrics: LambdaExecutionMetrics,
     carbonIntensity: number,
   ): CarbonFootprintResult {
-    // Memory in GB
     const memoryGB = metrics.memoryUsedMB / 1024;
 
-    // Duration in hours
     const durationHours = metrics.billedDurationMs / (1000 * 60 * 60);
 
-    // Power consumption in Watts
     const powerWatts = memoryGB * 1000 * this.LAMBDA_POWER_PER_GB_MS;
 
-    // Energy consumption in kWh
     const energyKWh = (powerWatts * durationHours) / 1000;
 
-    // Carbon footprint in gCO2
     const carbonFootprintGCO2 = energyKWh * carbonIntensity;
 
     return {
@@ -111,9 +94,6 @@ export class CarbonService {
     };
   }
 
-  /**
-   * Calculate total carbon footprint for multiple Lambda executions
-   */
   calculateTotalCarbonFootprint(
     executions: LambdaExecutionMetrics[],
     carbonIntensity: number,
