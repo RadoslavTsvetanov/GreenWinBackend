@@ -76,7 +76,7 @@ export class TasksService {
       zipBuffer: lambdaZip!,
       organization: owner.id,
       roleArn: "arn:aws:iam::982479883166:role/our-backend-to-create-lambdas",
-      regions: [ 'us-east-1'],
+      regions: [ 'us-east-1', 'eu-north-1', "eu-west-2"],
       projectId: projectId!
     })
 
