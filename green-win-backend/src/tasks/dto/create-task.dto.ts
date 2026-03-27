@@ -81,6 +81,7 @@ export class CreateTaskDto {
   allowedRegions?: string[];
 
   @ApiProperty({ description: 'UUID of the owner user' })
+  @IsOptional()
   @IsUUID()
   ownerId: string;
 
