@@ -1,9 +1,14 @@
 import { Controller, Post, Param, Body } from '@nestjs/common';
 import { LambdaService } from '../lambda/lambda.service';
+import { TasksService } from 'src/tasks';
+import { TaskStrategiesService } from 'src/task-strategies/task-strategies.service';
+import { TaskStrategy } from 'src/task-strategies/entities/task-strategy.entity';
 
 @Controller('gateway')
 export class GatewayController {
-  constructor(private readonly lambdaService: LambdaService) {}
+  constructor(private readonly lambdaService: LambdaService,
+    private readonly taskStrategiesService: TaskStrategiesService
+  ) {}
 
   @Post(':organization/:project/:name')
   async invokeWorkload(
@@ -19,7 +24,7 @@ export class GatewayController {
       functionName,
       payload,
     );
-    
+
     return result;
   }
 }
