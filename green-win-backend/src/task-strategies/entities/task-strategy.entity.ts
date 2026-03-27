@@ -58,6 +58,21 @@ export class TaskStrategy {
   cronExpression: string;
 
   /**
+   * Specific times of day for DAILY_AT_TIMES strategies.
+   * Each entry is "HH:mm" in UTC, e.g. ["09:00", "14:30"].
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  times: string[];
+
+  /**
+   * Time ranges for DAILY_IN_RANGE strategies.
+   * The ML model picks the optimal (greenest) moment within each range.
+   * Each entry: { start: "HH:mm", end: "HH:mm" } in UTC.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  timeRanges: { start: string; end: string }[];
+
+  /**
    * Runtime parameter values supplied when this strategy was activated.
    * Validated against the parent task's parameterSchema.
    */

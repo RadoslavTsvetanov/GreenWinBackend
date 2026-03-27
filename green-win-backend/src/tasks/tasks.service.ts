@@ -38,6 +38,12 @@ export class TasksService {
     });
   }
 
+  async findByName(name: string) {
+    return this.tasksRepository.findOne({
+      where: {name}
+    })
+  }
+
   async findOne(id: string): Promise<Task> {
     const task = await this.tasksRepository.findOne({
       where: { id },

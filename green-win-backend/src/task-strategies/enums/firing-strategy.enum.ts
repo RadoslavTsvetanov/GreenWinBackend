@@ -13,6 +13,10 @@ export enum FiringStrategy {
   MONTHLY = 'monthly',
   YEARLY = 'yearly',
   CUSTOM = 'custom',
+  /** Recurring daily at one or more specific times (e.g. ["09:00","14:30"]). */
+  DAILY_AT_TIMES = 'daily_at_times',
+  /** Recurring daily — ML model picks the greenest moment inside one or more time ranges. */
+  DAILY_IN_RANGE = 'daily_in_range',
 }
 
 export const REPEATABLE_STRATEGIES = new Set<FiringStrategy>([
@@ -21,6 +25,8 @@ export const REPEATABLE_STRATEGIES = new Set<FiringStrategy>([
   FiringStrategy.MONTHLY,
   FiringStrategy.YEARLY,
   FiringStrategy.CUSTOM,
+  FiringStrategy.DAILY_AT_TIMES,
+  FiringStrategy.DAILY_IN_RANGE,
 ]);
 
 export const STRATEGY_CRON: Partial<Record<FiringStrategy, string>> = {

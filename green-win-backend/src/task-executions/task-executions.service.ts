@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { And, Between, LessThan, MoreThan, Repository } from 'typeorm';
 import { TaskExecution } from './entities/task-execution.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { CreateTaskExecutionDto } from './dto/create-task-execution.dto';
@@ -18,6 +18,47 @@ export class TaskExecutionsService {
   async findAll(): Promise<TaskExecution[]> {
     return this.executionsRepository.find({
       relations: ['task', 'checkpoints'],
+    });
+  }
+
+  async getLogsFromDateToDate(organizationId: string, startDate: Date, endDate: Date) {
+    console.log({
+      where: {
+        createdAt: And(MoreThan(startDate), LessThan (endDate)), 
+        // task: {
+        //   project: {
+        //     organization: {
+        //       id: organizationId,
+        //     }
+        //   },
+        // },
+      },
+      relations: {
+        task: {
+          project: {
+            organization: true
+          }
+        }
+      }
+    })
+    return this.executionsRepository.find({
+      where: {
+        createdAt: And(MoreThan(startDate), LessThan (endDate)), 
+        // task: {
+        //   project: {
+        //     organization: {
+        //       id: organizationId,
+        //     }
+        //   },
+        // },
+      },
+      relations: {
+        task: {
+          project: {
+            organization: true
+          }
+        }
+      }
     });
   }
 

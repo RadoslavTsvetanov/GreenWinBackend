@@ -7,24 +7,74 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TaskExecutionsService } from 'src/task-executions';
 
 @ApiTags('organizations')
 @ApiBearerAuth('access-token')
 @Controller('organizations')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly taskExectionsService: TaskExecutionsService
+  
+  ) {}
 
   @Post()
   create(@Body() createOrganizationDto: CreateOrganizationDto) {
     return this.organizationsService.create(createOrganizationDto);
   }
+
+  @Get('/carbon-footprint/real')
+  async getCarbonUsage(
+    @Query('startDate') startDate: Date,
+    @Query('endDate', ) endDate: Date,
+    @Query('organizationId', ParseUUIDPipe) organizationId: string,
+  ){
+    const transformedStart = new Date(startDate)
+    const transformedEnd =  new Date(endDate)
+    return await this.taskExectionsService.getLogsFromDateToDate(organizationId, transformedStart,transformedEnd)
+  }
+
+  @Get('carbon-fotprint/:region')
+  async getCarbonUsageIfOnSpecificRegion(
+    
+    @Query('startDate') startDate: Date,
+    @Query('endDate', ) endDate: Date,
+    @Query('organizationId', ParseUUIDPipe) organizationId: string,
+  ){
+    const transformedStart = new Date(startDate)
+    const transformedEnd =  new Date(endDate)
+    const data = await this.taskExectionsService.getLogsFromDateToDate(organizationId, transformedStart ,transformedEnd)
+    data.forEach(entry => entry.metrics)
+  }
+
+  @Get('/:projectId/carbon-footprint/real')
+  getCarbonFootprintForCertainProject(
+    @Query('startDate') startDate: Date,
+    @Query('endDate') endDate: Date,
+    @Query('projectId') projectId: string,
+  ) {
+
+  }
+  
+  @Get("/:projectId/carbon-footprint/:region")
+  getCarbonFootprintForCertainProjectForCertainRegion(
+    @Query('startDate') startDate: Date,
+    @Query('endDate') endDate: Date,
+    @Query('projectId') projectId: string,
+  ){
+
+  }
+
 
   @Get()
   findAll() {
