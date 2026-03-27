@@ -77,6 +77,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        organizationId: (user as any)?.organization?.id,
+        organizationName: (user as any)?.organization?.name,
       },
       ...tokens,
     };
