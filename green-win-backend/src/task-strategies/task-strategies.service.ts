@@ -60,7 +60,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
 
     const active = await this.strategyRepository.find({
       where: { isActive: true },
-      relations: ['task', 'task.project', 'task.project.organization'],
+      relations: ['task', 'task.owner', 'task.project', 'task.project.organization'],
     });
 
     if (!active.length) {
@@ -110,7 +110,7 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   async findOne(id: string): Promise<TaskStrategy> {
     const strategy = await this.strategyRepository.findOne({
       where: { id },
-      relations: ['task', 'task.project', 'task.project.organization'],
+      relations: ['task', 'task.owner', 'task.project', 'task.project.organization'],
     });
     if (!strategy) throw new NotFoundException(`TaskStrategy ${id} not found`);
     return strategy;
@@ -192,8 +192,13 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   }
 
   private buildFunctionName(task: Task): string {
-    const orgName = (task.project as any)?.organization?.name ?? 'default';
-    return `${orgName}-${task.name}`;
+    // Must match the naming in AwsDeployService.deployLambdaToRegion
+    const ownerId = (task as any).owner?.id ?? 'default';
+    const projectId = (task as any).project?.id ?? 'default';
+    const ownerShort = ownerId.substring(0, 8);
+    const projShort = projectId.substring(0, 8);
+    const workloadName = task.name.replaceAll(' ', '-');
+    return `${ownerShort}-${projShort}-${workloadName}`;
   }
 
   private resolveScheduleParams(strategy: TaskStrategy): {
