@@ -155,6 +155,29 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     if (strategy.periodicity === Periodicity.ONCE) {
       const functionName = this.buildFunctionName(strategy.task);
       this.logger.log(`[activate] ONCE — functionName=${functionName}, task.owner=${strategy.task?.owner?.id}, task.project=${strategy.task?.project?.id}`);
+
+      const runAt = await this.computeOnceRunAt(strategy);
+
+      if (runAt) {
+        this.logger.log(`[activate] ONCE — scheduling for ${runAt.toISOString()}`);
+        await this.strategyRepository.save(strategy);
+
+        this.schedulerService.scheduleOnce(strategy.id, runAt, async () => {
+          try {
+            const result = await this.lambdaService.invokeGreenHandler(functionName, strategy.parameters ?? undefined);
+            strategy.lastFiredAt = new Date();
+            strategy.isActive = false;
+            await this.recordInvocation(strategy, result);
+          } catch (err: any) {
+            this.logger.error(`[activate] ONCE scheduled invocation failed: ${err?.message}`, err?.stack);
+            strategy.isActive = false;
+            await this.strategyRepository.save(strategy);
+          }
+        });
+
+        return strategy;
+      }
+
       try {
         const result = await this.lambdaService.invokeGreenHandler(functionName, strategy.parameters ?? undefined);
         strategy.lastFiredAt = new Date();
@@ -364,6 +387,46 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     );
 
     return `${optMinute} ${optHour} ${dayPattern}`;
+  }
+
+  private async computeOnceRunAt(strategy: TaskStrategy): Promise<Date | null> {
+    if (strategy.executionTime) {
+      const [hour, minute] = strategy.executionTime.split(':').map(Number);
+      const now = new Date();
+      const runAt = new Date(now);
+      runAt.setUTCHours(hour, minute, 0, 0);
+      if (runAt.getTime() <= now.getTime()) {
+        runAt.setUTCDate(runAt.getUTCDate() + 1);
+      }
+      return runAt;
+    }
+
+    if (strategy.timeRanges?.length) {
+      const range = strategy.timeRanges[0];
+      const [startH, startM] = range.start.split(':').map(Number);
+      const [endH, endM] = range.end.split(':').map(Number);
+
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setUTCHours(startH, startM, 0, 0);
+      const endDate = new Date(now);
+      endDate.setUTCHours(endH, endM, 0, 0);
+      if (endDate.getTime() <= startDate.getTime()) {
+        endDate.setUTCDate(endDate.getUTCDate() + 1);
+      }
+      if (startDate.getTime() <= now.getTime()) {
+        startDate.setUTCDate(startDate.getUTCDate() + 1);
+        endDate.setUTCDate(endDate.getUTCDate() + 1);
+      }
+
+      const prediction = await this.predictionService.predictOptimalExecutionDate({
+        startDate,
+        endDate,
+      });
+      return prediction.optimalDate;
+    }
+
+    return null;
   }
 
   private removeAllCronJobsForStrategy(strategy: TaskStrategy): void {
