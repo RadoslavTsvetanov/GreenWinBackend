@@ -18,7 +18,6 @@ export interface DeployLambdaInput {
   projectId: string;
   regions: string[];
   roleArn: string;
-  /** Pre-built zip buffer to deploy directly. */
   zipBuffer: Buffer;
   runtime?: Runtime;
   handler?: string;
@@ -45,9 +44,7 @@ export class AwsDeployService {
         secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY') as string,
       },
     });
-
-    // AWS Lambda function names must be <= 64 chars.
-    // Use first 8 chars of each UUID to stay within limit.
+    
     const orgShort = organization.substring(0, 8);
     const projShort = projectId.substring(0, 8);
     const functionName = `${orgShort}-${projShort}-${workloadName}`;

@@ -4,11 +4,8 @@ import { Lambda, waitUntilFunctionActive } from '@aws-sdk/client-lambda';
 import { CarbonService } from '../carbon/carbon.service';
 
 export interface LambdaInvocationResult {
-  /** The parsed response payload from the lambda. */
   payload: unknown;
-  /** The AWS region the lambda was invoked in. */
   region: string;
-  /** Execution metrics extracted from AWS + mock carbon calculation. */
   metrics: {
     durationMs: number;
     billedDurationMs: number;
@@ -65,16 +62,12 @@ export class LambdaService {
       ? JSON.parse(Buffer.from(response.Payload).toString('utf-8'))
       : null;
 
-    // Parse execution metrics from the base64-encoded log tail
     const awsMetrics = this.parseLogResult(response.LogResult);
 
-    // Estimate energy: power (kW) * time (h)
-    // AWS Lambda ~0.0000000667 kW per MB (rough estimate)
     const powerKw = (awsMetrics.memorySizeMb / 1024) * 0.0000000667;
     const durationHours = awsMetrics.durationMs / 1000 / 3600;
     const estimatedEnergyKwh = powerKw * durationHours;
 
-    // Mock carbon calculation using existing CarbonService data
     const estimatedEmissionsGco2 = estimatedEnergyKwh * carbonIntensity;
 
     const metrics = {
@@ -93,11 +86,6 @@ export class LambdaService {
     return { payload, region: leastCarbonRegion, metrics };
   }
 
-  /**
-   * Parse the REPORT line from the base64-encoded Lambda log tail.
-   * Example REPORT line:
-   * REPORT RequestId: xxx Duration: 12.34 ms Billed Duration: 13 ms Memory Size: 128 MB Max Memory Used: 56 MB
-   */
   private parseLogResult(logResult?: string): {
     durationMs: number;
     billedDurationMs: number;

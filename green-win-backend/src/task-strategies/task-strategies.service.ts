@@ -39,10 +39,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     private readonly configService: ConfigService,
   ) {}
 
-  // ---------------------------------------------------------------------------
-  // Startup recovery
-  // ---------------------------------------------------------------------------
-
   async onApplicationBootstrap(): Promise<void> {
     try {
       await this.recoverActiveStrategies();
@@ -95,10 +91,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     this.logger.log(`[RECOVERY] Restored ${restored}/${active.length} active strategies`);
   }
 
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
   async findAll(): Promise<TaskStrategy[]> {
     return this.strategyRepository.find({ relations: ['task'] });
   }
@@ -146,10 +138,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     await this.strategyRepository.remove(strategy);
   }
 
-  // ---------------------------------------------------------------------------
-  // Activate / Deactivate / Invoke
-  // ---------------------------------------------------------------------------
-
   async activate(
     id: string,
     parameters?: Record<string, any>,
@@ -181,7 +169,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
       }
     }
 
-    // Repeatable: schedule cron jobs
     await this.scheduleStrategy(strategy);
     return this.strategyRepository.save(strategy);
   }
@@ -198,10 +185,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     return this.strategyRepository.save(strategy);
   }
 
-  /**
-   * Manually invoke a strategy once on the greenest server right now.
-   * Does NOT change the activation state.
-   */
   async invoke(
     id: string,
     parameters?: Record<string, any>,
@@ -221,10 +204,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     return { result: result.payload };
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers used by TasksService (disable / delete)
-  // ---------------------------------------------------------------------------
-
   async deactivateAllForTask(taskId: string): Promise<void> {
     const active = await this.strategyRepository.find({
       where: { task: { id: taskId }, isActive: true },
@@ -236,21 +215,12 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     if (active.length) await this.strategyRepository.save(active);
   }
 
-  // ---------------------------------------------------------------------------
-  // Private: scheduling
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Sets up cron jobs for a strategy based on its fields.
-   * If cronExpression is set, it overrides everything else.
-   */
   private async scheduleStrategy(strategy: TaskStrategy): Promise<void> {
     const functionName = this.buildFunctionName(strategy.task);
     const onSuccess = async (result: LambdaInvocationResult): Promise<void> => {
       await this.recordInvocation(strategy, result);
     };
 
-    // Raw cron override takes priority
     if (strategy.cronExpression) {
       this.schedulerService.scheduleLambdaCall({
         jobId: strategy.id,
@@ -273,7 +243,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
         await this.scheduleWeeklyOrMonthly(strategy, functionName, onSuccess);
         break;
       case Periodicity.ONCE:
-        // "once" is handled in activate() — shouldn't reach here
         break;
     }
   }
@@ -365,10 +334,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     );
   }
 
-  /**
-   * Uses the prediction service to find the optimal time within a range,
-   * then returns a cron expression with the given day pattern.
-   */
   private async buildCronFromRange(
     range: { start: string; end: string },
     dayPattern: string,
@@ -401,10 +366,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     return `${optMinute} ${optHour} ${dayPattern}`;
   }
 
-  // ---------------------------------------------------------------------------
-  // Private: cleanup
-  // ---------------------------------------------------------------------------
-
   private removeAllCronJobsForStrategy(strategy: TaskStrategy): void {
     this.schedulerService.removeCronJob(strategy.id);
 
@@ -421,10 +382,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Private: helpers
-  // ---------------------------------------------------------------------------
-
   private buildFunctionName(task: Task): string {
     const ownerId = (task as any).owner?.id ?? 'default';
     const projectId = (task as any).project?.id ?? 'default';
@@ -434,10 +391,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     return `${ownerShort}-${projShort}-${workloadName}`;
   }
 
-  /**
-   * Creates an execution record with real AWS metrics + mock carbon data,
-   * and propagates emissions to the organization totals.
-   */
    async recordInvocation(
     strategy: TaskStrategy,
     result: LambdaInvocationResult,
@@ -458,7 +411,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
     });
     const saved = await this.executionRepository.save(execution);
 
-    // Propagate emissions to organization
     const orgId = (strategy.task.project as any)?.organization?.id;
     if (orgId) {
       const emissionsKg = result.metrics.estimatedEmissionsGco2 / 1000;
@@ -475,7 +427,6 @@ export class TaskStrategiesService implements OnApplicationBootstrap {
   private validateStrategyFields(dto: CreateTaskStrategyDto): void {
     const { periodicity, times, timeRanges, executionTime, dayOfWeek, dayOfMonth, cronExpression } = dto;
 
-    // cronExpression overrides everything, no further validation needed
     if (cronExpression) return;
 
     switch (periodicity) {

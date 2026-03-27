@@ -4,12 +4,10 @@ import { CronJob } from 'cron';
 import { LambdaService, LambdaInvocationResult } from '../lambda/lambda.service';
 
 export interface ScheduledTask {
-  /** Unique key for this cron slot. */
   jobId: string;
   functionName: string;
   cronExpression: string;
   payload?: Record<string, unknown>;
-  /** Called after each successful invocation with the full result (metrics, region, etc.). */
   onSuccess?: (result: LambdaInvocationResult) => Promise<void>;
 }
 
@@ -21,10 +19,6 @@ export class SchedulerService {
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly lambdaService: LambdaService,
   ) {}
-
-  // -------------------------------------------------------------------------
-  // Recurring cron — fires on every tick of the cron expression
-  // -------------------------------------------------------------------------
 
   scheduleLambdaCall(scheduledTask: ScheduledTask): void {
     const { jobId, functionName, cronExpression, payload, onSuccess } = scheduledTask;
@@ -47,10 +41,6 @@ export class SchedulerService {
     this.logger.log(`Recurring cron ${jobId} registered with expression: ${cronExpression}`);
   }
 
-  // -------------------------------------------------------------------------
-  // One-shot cron — fires exactly once at `runAt`, then self-destructs
-  // -------------------------------------------------------------------------
-
   scheduleOnce(
     taskId: string,
     runAt: Date,
@@ -69,7 +59,7 @@ export class SchedulerService {
         job.stop();
         try {
           this.schedulerRegistry.deleteCronJob(key);
-        } catch { /* already removed */ }
+        } catch {}
       }
     });
 
@@ -77,10 +67,6 @@ export class SchedulerService {
     job.start();
     this.logger.log(`One-shot cron ${key} scheduled for ${runAt.toISOString()}`);
   }
-
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
 
   removeCronJob(taskId: string): void {
     try {

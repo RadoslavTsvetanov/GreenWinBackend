@@ -16,8 +16,6 @@ import { PredictionModule } from './prediction/prediction.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TaskStrategiesModule } from './task-strategies/task-strategies.module';
-// Explicit entity list — ensures all entities are in the DataSource regardless
-// of autoLoadEntities timing with circular-imported entities.
 import { User } from './users/entities/user.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { Project } from './projects/entities/project.entity';
