@@ -46,7 +46,11 @@ export class AwsDeployService {
       },
     });
 
-    const functionName = `${organization}-${projectId}-${workloadName}`;
+    // AWS Lambda function names must be <= 64 chars.
+    // Use first 8 chars of each UUID to stay within limit.
+    const orgShort = organization.substring(0, 8);
+    const projShort = projectId.substring(0, 8);
+    const functionName = `${orgShort}-${projShort}-${workloadName}`;
 
     const response = await client.send(
       new CreateFunctionCommand({
