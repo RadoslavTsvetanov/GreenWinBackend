@@ -31,7 +31,6 @@ export class Organization {
   @Column({ nullable: true })
   address: string;
 
-  // Emissions and sustainability parameters
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   monthlyEmissionsTarget: number; // in kg CO2
 
