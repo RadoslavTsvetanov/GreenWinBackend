@@ -39,7 +39,6 @@ export class User {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization | null;
 
-  //this should be removed
   @OneToMany(() => Task, (task: Task) => task.owner)
   tasks: Task[];
 

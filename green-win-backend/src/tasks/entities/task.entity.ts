@@ -40,10 +40,6 @@ export class Task {
   status: TaskStatus;
 
 
-  /**
-   * Declares the parameters this task's lambda expects.
-   * Example: [{ name: "recipient", type: "string", required: true }]
-   */
   @Column({ type: 'jsonb', nullable: true })
   parameterSchema: Array<{
     name: string;
@@ -54,7 +50,6 @@ export class Task {
   }>;
 
 
-  //this should be removed
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   owner: User;
 
@@ -64,7 +59,6 @@ export class Task {
   })
   project: Project;
 
-  // String-based target breaks the circular import cycle with task-strategy.entity.ts
   @OneToMany('TaskStrategy', (s: any) => s.task)
   strategies: TaskStrategy[];
 
