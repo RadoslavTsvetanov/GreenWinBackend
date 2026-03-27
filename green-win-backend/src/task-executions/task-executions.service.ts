@@ -41,15 +41,14 @@ export class TaskExecutionsService {
       throw new NotFoundException(`Task with ID ${dto.taskId} not found`);
     }
 
-    const { taskId, scheduledAt, executionDate, startDate, endDate, ...rest } = dto;
+    const { taskId, scheduledAt, rangeStart, rangeEnd, ...rest } = dto;
 
     const execution = this.executionsRepository.create({
       ...rest,
       task,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-      executionDate: executionDate ? new Date(executionDate) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      rangeStart: rangeStart ? new Date(rangeStart) : undefined,
+      rangeEnd: rangeEnd ? new Date(rangeEnd) : undefined,
     });
 
     return this.executionsRepository.save(execution);
@@ -69,14 +68,13 @@ export class TaskExecutionsService {
       execution.task = task;
     }
 
-    const { taskId, scheduledAt, executionDate, startDate, endDate, ...rest } = dto;
+    const { taskId, scheduledAt, rangeStart, rangeEnd, ...rest } = dto;
 
     Object.assign(execution, {
       ...rest,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : execution.scheduledAt,
-      executionDate: executionDate ? new Date(executionDate) : execution.executionDate,
-      startDate: startDate ? new Date(startDate) : execution.startDate,
-      endDate: endDate ? new Date(endDate) : execution.endDate,
+      rangeStart: rangeStart ? new Date(rangeStart) : execution.rangeStart,
+      rangeEnd: rangeEnd ? new Date(rangeEnd) : execution.rangeEnd,
     });
 
     return this.executionsRepository.save(execution);

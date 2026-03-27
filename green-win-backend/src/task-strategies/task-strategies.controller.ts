@@ -53,4 +53,35 @@ export class TaskStrategiesController {
     return this.strategiesService.remove(id);
   }
 
+  @Post(':id/activate')
+  @ApiOperation({
+    summary: 'Activate a strategy',
+    description:
+      'For ONCE: fires the lambda immediately on the greenest server. ' +
+      'For DAILY/WEEKLY/MONTHLY: starts the cron schedule. ' +
+      'Strategies can be stacked — activating one does not deactivate others on the same task.',
+  })
+  activate(@Param('id') id: string, @Body() dto: ActivateStrategyDto) {
+    return this.strategiesService.activate(id, dto.parameters);
+  }
+
+  @Post(':id/deactivate')
+  @ApiOperation({
+    summary: 'Deactivate a repeatable strategy',
+    description: 'Stops the cron schedule. Does not affect other active strategies on the same task.',
+  })
+  deactivate(@Param('id') id: string) {
+    return this.strategiesService.deactivate(id);
+  }
+
+  @Post(':id/invoke')
+  @ApiOperation({
+    summary: 'Manually invoke once',
+    description:
+      'Fires the lambda immediately on the greenest server. ' +
+      'Does not change the activation state.',
+  })
+  invoke(@Param('id') id: string, @Body() dto: ActivateStrategyDto) {
+    return this.strategiesService.invoke(id, dto.parameters);
+  }
 }
