@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Lambda } from '@aws-sdk/client-lambda';
+import { Lambda, waitUntilFunctionActive } from '@aws-sdk/client-lambda';
 import { CarbonService } from '../carbon/carbon.service';
 
 export interface LambdaInvocationResult {
@@ -46,6 +46,11 @@ export class LambdaService {
         ) as string,
       },
     });
+
+    await waitUntilFunctionActive(
+      { client: lambda, maxWaitTime: 60 },
+      { FunctionName: handlerName },
+    );
 
     const response = await lambda.invoke({
       FunctionName: handlerName,
