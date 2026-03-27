@@ -76,8 +76,8 @@ export class OrganizationsService {
 
   async updateEmissions(id: string, emissionsAdded: number): Promise<Organization> {
     const organization = await this.findOne(id);
-    organization.currentMonthEmissions += emissionsAdded;
-    organization.totalEmissions += emissionsAdded;
+    organization.currentMonthEmissions = Number(organization.currentMonthEmissions) + emissionsAdded;
+    organization.totalEmissions = Number(organization.totalEmissions) + emissionsAdded;
     return this.organizationRepository.save(organization);
   }
 
@@ -89,7 +89,7 @@ export class OrganizationsService {
 
   async updateEnergySaved(id: string, energySaved: number): Promise<Organization> {
     const organization = await this.findOne(id);
-    organization.totalEnergySaved += energySaved;
+    organization.totalEnergySaved = Number(organization.totalEnergySaved) + energySaved;
     return this.organizationRepository.save(organization);
   }
 
