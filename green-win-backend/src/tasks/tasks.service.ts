@@ -11,6 +11,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { SchedulerService } from '../scheduler/scheduler.service';
 import { Periodicity } from '../task-strategies/enums/firing-strategy.enum';
 import { AwsDeployService } from '../aws/aws-deploy.service';
+import { EUROPE_AWS_REGION_COUNTRY } from '../carbon/constants/aws-regions';
 
 @Injectable()
 export class TasksService {
